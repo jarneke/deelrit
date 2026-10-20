@@ -1,0 +1,59 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  vertical-align: middle;
+}
+
+.button > svg {
+  flex-shrink: 0;
+}
+
+.button.iconOnly {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+
+.button.danger {
+  border-color: #fecdca;
+  background: #ffffff;
+  color: #b42318;
+}
+
+.button.danger:hover:not(:disabled) {
+  background: #fff0ef;
+}
+
+.button:focus-visible {
+  outline: 3px solid #3f69dc;
+  outline-offset: 3px;
+}
+
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.spinning {
+  animation: action-button-spin 900ms linear infinite;
+}
+
+@keyframes action-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation: none;
+  }
+}

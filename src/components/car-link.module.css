@@ -1,0 +1,18 @@
+.link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.link:hover {
+  border-color: #9bb2e8;
+  box-shadow: 0 4px 18px #203b720a;
+}
+
+.link:focus-visible {
+  outline: 3px solid #3f69dc;
+  outline-offset: 4px;
+}

@@ -1,0 +1,220 @@
+.page {
+  min-height: 100dvh;
+  padding: 32px 24px 48px;
+}
+
+.container {
+  max-width: 768px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 36px;
+}
+
+.back,
+.account {
+  padding: 8px 0;
+  color: #3157be;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.back:hover,
+.account:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.back:focus-visible,
+.account:focus-visible {
+  outline: 3px solid #3f69dc;
+  outline-offset: 4px;
+}
+
+.carHeader {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.carIcon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: #e5ecfc;
+  color: #3157be;
+  font-size: 32px;
+}
+
+.identity {
+  min-width: 0;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #596a80;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-size: 32px;
+  letter-spacing: -1px;
+  overflow-wrap: anywhere;
+}
+
+.plate {
+  margin: 8px 0 0;
+  color: #596a80;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.balance {
+  margin-top: 32px;
+  padding: 26px;
+  border-radius: 18px;
+  background: #203b72;
+  color: #ffffff;
+}
+
+.balance h2 {
+  margin: 0;
+  color: #d0dbf4;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.balance p {
+  margin: 12px 0 0;
+  color: #d0dbf4;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.balance .amount {
+  color: #ffffff;
+  font-size: clamp(24px, 5vw, 34px);
+  font-weight: 600;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.card,
+.members {
+  padding: 24px;
+  border: 1px solid #dce3ee;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.card h2,
+.members h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.card p {
+  margin: 12px 0 0;
+  color: #596a80;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.members {
+  margin-top: 24px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.badge {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #edf2fd;
+  color: #3157be;
+  font-size: 11px;
+}
+
+.memberList {
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.member {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.member:last-child {
+  border-bottom: 0;
+}
+
+.memberAvatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #e5ecfc;
+  color: #3157be;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.memberInfo {
+  min-width: 0;
+}
+
+.memberName {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.memberRole {
+  margin: 5px 0 0;
+  color: #596a80;
+  font-size: 12px;
+}
+
+.memberHint {
+  margin: 16px 0 0;
+  color: #596a80;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+@media (max-width: 540px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
