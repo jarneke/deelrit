@@ -231,7 +231,6 @@ async function CarOverview({ params }: Props) {
               payers={drivers}
               latestRefuel={overview.latestRefuel}
               refuelCount={overview.refuelCount}
-              totalDistance={undefined}
               historyRevision={overview.refuelHistoryRevision}
             />
 
