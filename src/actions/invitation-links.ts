@@ -1,9 +1,11 @@
 "use server";
 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import type { PoolClient } from "pg";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { logServerError } from "@/lib/server-error";
 
 type CreateResult =
     | { success: true; path: string }
@@ -30,7 +32,7 @@ function validId(id: unknown): id is string {
 }
 
 export async function createInvitationLink(
-    organizationId: string
+    organizationId: string,
 ): Promise<CreateResult> {
     const session = await getSession();
 
@@ -63,7 +65,7 @@ export async function createInvitationLink(
         )
         RETURNING id
       `,
-            [organizationId, session.user.id, tokenHash]
+            [organizationId, session.user.id, tokenHash],
         );
 
         if (result.rowCount !== 1) {
@@ -79,7 +81,9 @@ export async function createInvitationLink(
             success: true,
             path: `/uitnodiging/${token}`,
         };
-    } catch {
+    } catch (error) {
+        logServerError("createInvitationLink", error);
+
         return {
             success: false,
             error: "De uitnodigingslink kon niet worden gemaakt.",
@@ -88,7 +92,7 @@ export async function createInvitationLink(
 }
 
 export async function revokeInvitationLink(
-    invitationId: string
+    invitationId: string,
 ): Promise<ActionResult> {
     const session = await getSession();
 
@@ -99,7 +103,7 @@ export async function revokeInvitationLink(
     if (
         typeof invitationId !== "string" ||
         !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(
-            invitationId
+            invitationId,
         )
     ) {
         return { success: false, error: "Ongeldige uitnodiging." };
@@ -122,7 +126,7 @@ export async function revokeInvitationLink(
           )
         RETURNING invitation.organization_id
       `,
-            [invitationId, session.user.id]
+            [invitationId, session.user.id],
         );
 
         if (result.rowCount !== 1) {
@@ -135,7 +139,9 @@ export async function revokeInvitationLink(
         revalidatePath(`/auto/${result.rows[0].organization_id}`);
 
         return { success: true };
-    } catch {
+    } catch (error) {
+        logServerError("revokeInvitationLink", error);
+
         return {
             success: false,
             error: "De uitnodiging kon niet worden ingetrokken.",
@@ -144,7 +150,7 @@ export async function revokeInvitationLink(
 }
 
 export async function acceptInvitationLink(
-    token: string
+    token: string,
 ): Promise<AcceptResult> {
     const session = await getSession();
 
@@ -163,10 +169,15 @@ export async function acceptInvitationLink(
     }
 
     const tokenHash = hashToken(token);
-    const client = await db.connect();
+
+    let client: PoolClient | undefined;
+    let transactionOpen = false;
 
     try {
+        client = await db.connect();
+
         await client.query("BEGIN");
+        transactionOpen = true;
 
         // Vergrendel eerst de groep. Dit voorkomt ook dubbele
         // lidmaatschappen via verschillende gelijktijdige links.
@@ -179,11 +190,12 @@ export async function acceptInvitationLink(
         WHERE invitation.token_hash = $1
         FOR UPDATE OF organization
       `,
-            [tokenHash]
+            [tokenHash],
         );
 
         if (groupResult.rowCount !== 1) {
             await client.query("ROLLBACK");
+            transactionOpen = false;
 
             return {
                 success: false,
@@ -211,11 +223,12 @@ export async function acceptInvitationLink(
           )
         FOR UPDATE OF invitation
       `,
-            [tokenHash]
+            [tokenHash],
         );
 
         if (invitationResult.rowCount !== 1) {
             await client.query("ROLLBACK");
+            transactionOpen = false;
 
             return {
                 success: false,
@@ -230,11 +243,12 @@ export async function acceptInvitationLink(
         WHERE "organizationId" = $1
           AND "userId" = $2
       `,
-            [organizationId, session.user.id]
+            [organizationId, session.user.id],
         );
 
         if (membership.rowCount) {
             await client.query("ROLLBACK");
+            transactionOpen = false;
 
             // Een bestaand lid verbruikt de uitnodiging niet.
             return { success: true, organizationId };
@@ -246,11 +260,12 @@ export async function acceptInvitationLink(
         FROM public.member
         WHERE "organizationId" = $1
       `,
-            [organizationId]
+            [organizationId],
         );
 
         if (countResult.rows[0].total >= 100) {
             await client.query("ROLLBACK");
+            transactionOpen = false;
 
             return {
                 success: false,
@@ -269,7 +284,7 @@ export async function acceptInvitationLink(
         )
         VALUES ($1, $2, $3, 'member', NOW())
       `,
-            [randomUUID(), organizationId, session.user.id]
+            [randomUUID(), organizationId, session.user.id],
         );
 
         await client.query(
@@ -278,23 +293,32 @@ export async function acceptInvitationLink(
         SET used_at = NOW(), used_by = $2
         WHERE id = $1
       `,
-            [invitationResult.rows[0].id, session.user.id]
+            [invitationResult.rows[0].id, session.user.id],
         );
 
         await client.query("COMMIT");
+        transactionOpen = false;
 
         revalidatePath("/");
         revalidatePath(`/auto/${organizationId}`);
 
         return { success: true, organizationId };
-    } catch {
-        await client.query("ROLLBACK");
+    } catch (error) {
+        logServerError("acceptInvitationLink", error);
+
+        if (client && transactionOpen) {
+            try {
+                await client.query("ROLLBACK");
+            } catch (rollbackError) {
+                logServerError("acceptInvitationLink.rollback", rollbackError);
+            }
+        }
 
         return {
             success: false,
             error: "Deelnemen is niet gelukt. Probeer opnieuw.",
         };
     } finally {
-        client.release();
+        client?.release();
     }
 }

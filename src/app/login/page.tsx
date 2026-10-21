@@ -1,13 +1,22 @@
 "use client";
 
 import { Suspense, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import LoadingState from "@/components/loading-state";
 import styles from "./page.module.css";
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<p>Inloggen laden…</p>}>
+    <Suspense
+      fallback={
+        <LoadingState
+          title="Inloggen laden…"
+          description="We zetten het inlogscherm voor je klaar."
+        />
+      }
+    >
       <LoginForm />
     </Suspense>
   );
@@ -16,13 +25,17 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
   const requestedNext = searchParams.get("next");
 
   const destination =
     requestedNext && /^\/uitnodiging\/[a-f0-9]{64}$/.test(requestedNext)
       ? requestedNext
       : "/";
+
+  const resetHref =
+    destination === "/"
+      ? "/wachtwoord-reset"
+      : `/wachtwoord-reset?next=${encodeURIComponent(destination)}`;
 
   const [register, setRegister] = useState(false);
   const [name, setName] = useState("");
@@ -33,6 +46,8 @@ function LoginForm() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
+
     setError("");
     setBusy(true);
 
@@ -88,7 +103,6 @@ function LoginForm() {
             {register && (
               <div className={styles.field}>
                 <label htmlFor="name">Je naam</label>
-
                 <input
                   id="name"
                   value={name}
@@ -103,7 +117,6 @@ function LoginForm() {
 
             <div className={styles.field}>
               <label htmlFor="email">E-mailadres</label>
-
               <input
                 id="email"
                 type="email"
@@ -116,7 +129,6 @@ function LoginForm() {
 
             <div className={styles.field}>
               <label htmlFor="password">Wachtwoord</label>
-
               <input
                 id="password"
                 type="password"
@@ -144,6 +156,14 @@ function LoginForm() {
             </button>
           </fieldset>
         </form>
+
+        {!register && !busy && (
+          <p>
+            <Link href={resetHref} className={styles.switchMode}>
+              Wachtwoord vergeten?
+            </Link>
+          </p>
+        )}
 
         <button
           type="button"

@@ -4,6 +4,7 @@ import type { PoolClient } from "pg";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { logServerError } from "@/lib/server-error";
 
 type TripInput = {
     organizationId: string;
@@ -65,9 +66,7 @@ function validUuid(value: unknown): value is string {
     );
 }
 
-function validOdometer(
-    value: unknown,
-): value is number {
+function validOdometer(value: unknown): value is number {
     return (
         typeof value === "number" &&
         Number.isInteger(value) &&
@@ -110,8 +109,7 @@ async function saveTrip(
     ) {
         return {
             success: false,
-            error:
-                "De eindstand moet hoger zijn dan de beginstand.",
+            error: "De eindstand moet hoger zijn dan de beginstand.",
         };
     }
 
@@ -125,37 +123,28 @@ async function saveTrip(
         };
     }
 
-    const parsedDate = new Date(
-        `${input.tripDate}T00:00:00Z`,
-    );
+    const parsedDate = new Date(`${input.tripDate}T00:00:00Z`);
 
-    const today = new Intl.DateTimeFormat(
-        "sv-SE",
-        {
-            timeZone: "Europe/Brussels",
-        },
-    ).format(new Date());
+    const today = new Intl.DateTimeFormat("sv-SE", {
+        timeZone: "Europe/Brussels",
+    }).format(new Date());
 
     if (
         Number.isNaN(parsedDate.getTime()) ||
-        parsedDate.toISOString().slice(0, 10) !==
-        input.tripDate ||
+        parsedDate.toISOString().slice(0, 10) !== input.tripDate ||
         input.tripDate < "1900-01-01" ||
         input.tripDate > today
     ) {
         return {
             success: false,
-            error:
-                "Vul een geldige datum in die niet in de toekomst ligt.",
+            error: "Vul een geldige datum in die niet in de toekomst ligt.",
         };
     }
 
     if (
         typeof input.endTime !== "string" ||
         (input.endTime !== "" &&
-            !/^([01]\d|2[0-3]):[0-5]\d$/.test(
-                input.endTime,
-            ))
+            !/^([01]\d|2[0-3]):[0-5]\d$/.test(input.endTime))
     ) {
         return {
             success: false,
@@ -169,8 +158,7 @@ async function saveTrip(
     ) {
         return {
             success: false,
-            error:
-                "De opmerking mag maximaal 500 tekens bevatten.",
+            error: "De opmerking mag maximaal 500 tekens bevatten.",
         };
     }
 
@@ -213,8 +201,7 @@ async function saveTrip(
         );
 
         const actor = members.rows.find(
-            (member) =>
-                member.userId === session.user.id,
+            (member) => member.userId === session.user.id,
         );
 
         if (!actor) {
@@ -231,28 +218,27 @@ async function saveTrip(
         let original: ExistingTrip | undefined;
 
         if (edit) {
-            const result =
-                await client.query<ExistingTrip>(
-                    `
-            SELECT
-              id,
-              driver_id,
-              created_by,
-              start_odometer,
-              end_odometer,
-              ended_at,
-              to_char(
-                ended_at AT TIME ZONE 'Europe/Brussels',
-                'YYYY-MM-DD HH24:MI'
-              ) AS local_time,
-              updated_at::text AS version
-            FROM public.car_trip
-            WHERE organization_id = $1
-              AND id = $2
-            FOR UPDATE
-          `,
-                    [input.organizationId, edit.id],
-                );
+            const result = await client.query<ExistingTrip>(
+                `
+          SELECT
+            id,
+            driver_id,
+            created_by,
+            start_odometer,
+            end_odometer,
+            ended_at,
+            to_char(
+              ended_at AT TIME ZONE 'Europe/Brussels',
+              'YYYY-MM-DD HH24:MI'
+            ) AS local_time,
+            updated_at::text AS version
+          FROM public.car_trip
+          WHERE organization_id = $1
+            AND id = $2
+          FOR UPDATE
+        `,
+                [input.organizationId, edit.id],
+            );
 
             original = result.rows[0];
 
@@ -282,8 +268,7 @@ async function saveTrip(
         }
 
         const driverIsMember = members.rows.some(
-            (member) =>
-                member.userId === input.driverId,
+            (member) => member.userId === input.driverId,
         );
 
         if (
@@ -295,24 +280,22 @@ async function saveTrip(
             );
         }
 
-        const startpointResult =
-            await client.query<{
-                tank_date: string;
-                odometer: number;
-            }>(
-                `
-          SELECT
-            tank_date::text AS tank_date,
-            odometer
-          FROM public.car_startpoint
-          WHERE organization_id = $1
-          FOR SHARE
-        `,
-                [input.organizationId],
-            );
+        const startpointResult = await client.query<{
+            tank_date: string;
+            odometer: number;
+        }>(
+            `
+        SELECT
+          tank_date::text AS tank_date,
+          odometer
+        FROM public.car_startpoint
+        WHERE organization_id = $1
+        FOR SHARE
+      `,
+            [input.organizationId],
+        );
 
-        const startpoint =
-            startpointResult.rows[0];
+        const startpoint = startpointResult.rows[0];
 
         if (!startpoint) {
             throw new TripValidationError(
@@ -347,8 +330,7 @@ async function saveTrip(
             [input.organizationId],
         );
 
-        let previousOdometer =
-            startpoint.odometer;
+        let previousOdometer = startpoint.odometer;
 
         for (const refuel of refuels.rows) {
             const newTouches =
@@ -397,8 +379,7 @@ async function saveTrip(
                 );
             }
         } else {
-            const localDateTime =
-                `${input.tripDate} ${input.endTime}`;
+            const localDateTime = `${input.tripDate} ${input.endTime}`;
 
             // Behoud het bestaande tijdstip als datum en
             // lokale tijd ongewijzigd zijn, ook bij wintertijd.
@@ -598,11 +579,21 @@ async function saveTrip(
         await client.query("COMMIT");
         transactionOpen = false;
     } catch (error) {
+        if (!(error instanceof TripValidationError)) {
+            logServerError(
+                edit ? "updateCarTrip" : "createCarTrip",
+                error,
+            );
+        }
+
         if (client && transactionOpen) {
             try {
                 await client.query("ROLLBACK");
-            } catch {
-                // De verbinding kan al verbroken zijn.
+            } catch (rollbackError) {
+                logServerError(
+                    edit ? "updateCarTrip.rollback" : "createCarTrip.rollback",
+                    rollbackError,
+                );
             }
         }
 
@@ -620,9 +611,7 @@ async function saveTrip(
         client?.release();
     }
 
-    revalidatePath(
-        `/auto/${input.organizationId}`,
-    );
+    revalidatePath(`/auto/${input.organizationId}`);
 
     return { success: true };
 }
@@ -643,8 +632,7 @@ export async function updateCarTrip(
     ) {
         return {
             success: false,
-            error:
-                "Ongeldige rit. Open de rit opnieuw.",
+            error: "Ongeldige rit. Open de rit opnieuw.",
         };
     }
 

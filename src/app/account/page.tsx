@@ -2,11 +2,19 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { requireSession } from "@/lib/session";
 import LogoutButton from "@/components/logout-button";
+import LoadingState from "@/components/loading-state";
 import styles from "./page.module.css";
 
 export default function AccountPage() {
   return (
-    <Suspense fallback={<p>Account laden…</p>}>
+    <Suspense
+      fallback={
+        <LoadingState
+          title="Je account laden…"
+          description="We halen je profielgegevens op."
+        />
+      }
+    >
       <Account />
     </Suspense>
   );

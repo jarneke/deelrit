@@ -6,6 +6,7 @@ import {
   createInvitationLink,
   revokeInvitationLink,
 } from "@/actions/invitation-links";
+import ActionButton from "./action-button";
 import styles from "./invitation-links.module.css";
 
 type Invitation = {
@@ -31,15 +32,19 @@ export default function InvitationLinks({
   invitations,
 }: Props) {
   const router = useRouter();
-
   const [link, setLink] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
+  const busy = pending !== null;
+  const disabled = busy || sharing;
+
   async function createLink() {
-    setBusy(true);
+    if (disabled) return;
+
+    setPending("create");
     setError("");
     setNotice("");
 
@@ -57,11 +62,13 @@ export default function InvitationLinks({
     } catch {
       setError("De link kon niet worden gemaakt. Probeer opnieuw.");
     } finally {
-      setBusy(false);
+      setPending(null);
     }
   }
 
   async function copyLink() {
+    if (disabled || !link) return;
+
     setError("");
     setNotice("");
 
@@ -74,6 +81,8 @@ export default function InvitationLinks({
   }
 
   async function shareLink() {
+    if (disabled || !link) return;
+
     setError("");
     setNotice("");
 
@@ -111,7 +120,9 @@ export default function InvitationLinks({
   }
 
   async function revokeLink(id: string) {
-    setBusy(true);
+    if (disabled) return;
+
+    setPending(id);
     setError("");
     setNotice("");
 
@@ -129,7 +140,7 @@ export default function InvitationLinks({
     } catch {
       setError("Intrekken is niet gelukt. Probeer opnieuw.");
     } finally {
-      setBusy(false);
+      setPending(null);
     }
   }
 
@@ -143,14 +154,15 @@ export default function InvitationLinks({
           </p>
         </div>
 
-        <button
-          type="button"
+        <ActionButton
+          icon="plus"
+          loading={pending === "create"}
           className={styles.primary}
           onClick={createLink}
-          disabled={busy || sharing}
+          disabled={disabled}
         >
-          {busy ? "Even geduld…" : "+ Uitnodigingslink"}
-        </button>
+          {pending === "create" ? "Even geduld…" : "Uitnodigingslink"}
+        </ActionButton>
       </div>
 
       {link && (
@@ -165,23 +177,24 @@ export default function InvitationLinks({
               onFocus={(event) => event.currentTarget.select()}
             />
 
-            <button
-              type="button"
+            <ActionButton
+              icon="share"
+              loading={sharing}
               className={styles.primary}
               onClick={shareLink}
-              disabled={busy || sharing}
+              disabled={disabled}
             >
               {sharing ? "Delen…" : "Delen"}
-            </button>
+            </ActionButton>
 
-            <button
-              type="button"
+            <ActionButton
+              icon="copy"
+              iconOnly
+              label="Uitnodigingslink kopiëren"
               className={styles.secondary}
               onClick={copyLink}
-              disabled={busy || sharing}
-            >
-              Kopiëren
-            </button>
+              disabled={disabled}
+            />
           </div>
 
           <p>
@@ -213,23 +226,21 @@ export default function InvitationLinks({
             <li key={invitation.id} className={styles.item}>
               <div>
                 <p className={styles.itemTitle}>Uitnodigingslink</p>
-
                 <p className={styles.expiry}>
                   Geldig tot {formatDate(invitation.expiresAt)}
                 </p>
               </div>
 
-              <button
-                type="button"
+              <ActionButton
+                icon="close"
+                iconOnly
+                danger
+                loading={pending === invitation.id}
+                label={`Uitnodiging geldig tot ${formatDate(invitation.expiresAt)} intrekken`}
                 className={styles.secondary}
-                disabled={busy || sharing}
+                disabled={disabled}
                 onClick={() => revokeLink(invitation.id)}
-                aria-label={`Uitnodiging geldig tot ${formatDate(
-                  invitation.expiresAt,
-                )} intrekken`}
-              >
-                Intrekken
-              </button>
+              />
             </li>
           ))}
         </ul>

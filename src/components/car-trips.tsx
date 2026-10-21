@@ -10,7 +10,9 @@ import {
 import { useRouter } from "next/navigation";
 import { createCarTrip, updateCarTrip } from "@/actions/car-trips";
 import { deleteCarTrip } from "@/actions/delete-car-trip";
-import ActionButton, { ActionGroup } from "./action-button";
+import type { TripHistoryItem } from "@/lib/car-history-types";
+import ActionButton from "./action-button";
+import CarTripHistory from "./car-trip-history";
 import styles from "./car-trips.module.css";
 
 type Driver = {
@@ -18,17 +20,11 @@ type Driver = {
   name: string;
 };
 
-type Trip = {
-  id: string;
-  driverId: string;
-  driverName: string;
-  createdBy: string;
-  version: string;
-  tripDate: string;
-  endedAt: string | null;
-  startOdometer: number;
-  endOdometer: number;
-  description: string;
+type Trip = Omit<TripHistoryItem, "settledLocked">;
+
+type Gap = {
+  start: number;
+  end: number;
 };
 
 type Props = {
@@ -39,14 +35,13 @@ type Props = {
   startDate: string;
   today: string;
   drivers: Driver[];
-  trips: Trip[];
-  refuels: {
-    odometer: number;
-    settledAt: string | null;
-  }[];
+  latestTrip: Trip | null;
+  tripCount: number;
+  totalDistance: number;
+  gaps: Gap[];
+  historyRevision: string;
 };
 
-const PAGE_SIZE = 10;
 const numbers = new Intl.NumberFormat("nl-BE");
 
 function formatDate(value: string) {
@@ -91,16 +86,22 @@ export default function CarTrips({
   startDate,
   today,
   drivers,
-  trips,
-  refuels,
+  latestTrip,
+  tripCount,
+  totalDistance,
+  gaps,
+  historyRevision,
 }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const deleteRef = useRef<HTMLDivElement>(null);
 
   const [showForm, setShowForm] = useState(false);
-  const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
-  const [deletingTrip, setDeletingTrip] = useState<Trip | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [editingTrip, setEditingTrip] = useState<TripHistoryItem | null>(null);
+  const [deletingTrip, setDeletingTrip] = useState<TripHistoryItem | null>(
+    null,
+  );
 
   const [driverId, setDriverId] = useState(currentUserId);
   const [tripDate, setTripDate] = useState(today);
@@ -109,7 +110,6 @@ export default function CarTrips({
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [description, setDescription] = useState("");
-  const [page, setPage] = useState(0);
   const [saving, setSaving] = useState(false);
   const [refreshing, startRefresh] = useTransition();
   const [error, setError] = useState("");
@@ -140,82 +140,12 @@ export default function CarTrips({
     }
   }, [deletingTrip]);
 
-  const orderedTrips = [...trips].sort(
-    (a, b) =>
-      a.startOdometer - b.startOdometer || a.endOdometer - b.endOdometer,
-  );
-
-  const latestTrip = orderedTrips[orderedTrips.length - 1];
-
   const latestOdometer = latestTrip?.endOdometer ?? startOdometer;
-
-  const totalDistance = orderedTrips.reduce(
-    (total, trip) => total + trip.endOdometer - trip.startOdometer,
-    0,
-  );
-
-  const settledRanges: {
-    start: number;
-    end: number;
-  }[] = [];
-
-  let previousTank = startOdometer;
-
-  for (const refuel of [...refuels].sort((a, b) => a.odometer - b.odometer)) {
-    if (refuel.settledAt) {
-      settledRanges.push({
-        start: previousTank,
-        end: refuel.odometer,
-      });
-    }
-
-    previousTank = refuel.odometer;
-  }
-
-  function isLocked(trip: Trip) {
-    return settledRanges.some(
-      (range) =>
-        trip.startOdometer < range.end && trip.endOdometer > range.start,
-    );
-  }
-
-  function canEdit(trip: Trip) {
-    return (
-      isOwner ||
-      trip.createdBy === currentUserId ||
-      trip.driverId === currentUserId
-    );
-  }
-
-  const gaps: {
-    start: number;
-    end: number;
-  }[] = [];
-
-  let previousEnd = startOdometer;
-
-  for (const trip of orderedTrips) {
-    if (trip.startOdometer > previousEnd) {
-      gaps.push({
-        start: previousEnd,
-        end: trip.startOdometer,
-      });
-    }
-
-    previousEnd = Math.max(previousEnd, trip.endOdometer);
-  }
 
   const missingDistance = gaps.reduce(
     (total, gap) => total + gap.end - gap.start,
     0,
   );
-
-  const newestFirst = [...orderedTrips].reverse();
-  const pageCount = Math.max(1, Math.ceil(newestFirst.length / PAGE_SIZE));
-  const currentPage = Math.min(page, pageCount - 1);
-  const firstIndex = currentPage * PAGE_SIZE;
-
-  const visibleTrips = newestFirst.slice(firstIndex, firstIndex + PAGE_SIZE);
 
   const startNumber = start.trim() ? Number(start) : null;
   const endNumber = end.trim() ? Number(end) : null;
@@ -239,6 +169,14 @@ export default function CarTrips({
       ? editingTrip
       : null;
 
+  function canEdit(trip: TripHistoryItem) {
+    return (
+      isOwner ||
+      trip.createdBy === currentUserId ||
+      trip.driverId === currentUserId
+    );
+  }
+
   function refreshPage() {
     startRefresh(() => {
       router.refresh();
@@ -261,8 +199,8 @@ export default function CarTrips({
     setShowForm(true);
   }
 
-  function openEditForm(trip: Trip) {
-    if (busy || interactionOpen || !canEdit(trip) || isLocked(trip)) {
+  function openEditForm(trip: TripHistoryItem) {
+    if (busy || interactionOpen || !canEdit(trip) || trip.settledLocked) {
       return;
     }
 
@@ -285,8 +223,8 @@ export default function CarTrips({
     setError("");
   }
 
-  function openDeleteForm(trip: Trip) {
-    if (busy || interactionOpen || !canEdit(trip) || isLocked(trip)) {
+  function openDeleteForm(trip: TripHistoryItem) {
+    if (busy || interactionOpen || !canEdit(trip) || trip.settledLocked) {
       return;
     }
 
@@ -369,10 +307,7 @@ export default function CarTrips({
         return;
       }
 
-      if (!editingTrip) setPage(0);
-
       setNotice(editingTrip ? "Rit bijgewerkt." : "Rit opgeslagen.");
-
       setShowForm(false);
       setEditingTrip(null);
       refreshPage();
@@ -388,6 +323,7 @@ export default function CarTrips({
       <div className={styles.header}>
         <div>
           <h2>Ritten</h2>
+
           <p className={styles.subtitle}>
             Laatste geregistreerde stand:{" "}
             <strong>{numbers.format(latestOdometer)} km</strong>
@@ -525,6 +461,7 @@ export default function CarTrips({
 
             <div className={styles.field}>
               <label htmlFor="trip-driver">Bestuurder</label>
+
               <select
                 id="trip-driver"
                 value={driverId}
@@ -549,6 +486,7 @@ export default function CarTrips({
 
             <div className={styles.field}>
               <label htmlFor="trip-date">Datum einde rit</label>
+
               <input
                 id="trip-date"
                 type="date"
@@ -562,6 +500,7 @@ export default function CarTrips({
 
             <div className={styles.field}>
               <label htmlFor="trip-time">Eindtijd</label>
+
               <input
                 id="trip-time"
                 type="time"
@@ -581,6 +520,7 @@ export default function CarTrips({
 
             <div className={styles.field}>
               <label htmlFor="trip-start">Beginstand van de rit</label>
+
               <input
                 id="trip-start"
                 type="number"
@@ -596,6 +536,7 @@ export default function CarTrips({
 
             <div className={styles.field}>
               <label htmlFor="trip-end">Eindstand van de rit</label>
+
               <input
                 id="trip-end"
                 type="number"
@@ -614,6 +555,7 @@ export default function CarTrips({
                 <h3>
                   Er ontbreekt {numbers.format(incomingGap)} km vóór deze rit
                 </h3>
+
                 <p>
                   Tussen {numbers.format(latestOdometer)}
                   {" en "}
@@ -627,6 +569,7 @@ export default function CarTrips({
 
             <div className={styles.wideField}>
               <label htmlFor="trip-description">Opmerking · optioneel</label>
+
               <input
                 id="trip-description"
                 value={description}
@@ -688,6 +631,7 @@ export default function CarTrips({
 
           <details className={styles.gapDetails}>
             <summary>Ontbrekende trajecten bekijken</summary>
+
             <ul>
               {gaps.map((gap) => (
                 <li key={`${gap.start}-${gap.end}`}>
@@ -701,127 +645,19 @@ export default function CarTrips({
         </div>
       )}
 
-      <details className={styles.history}>
-        <summary className={styles.historySummary}>
-          <span className={styles.historyHeading}>
-            <span>Rittengeschiedenis</span>
-            <span className={styles.count}>{trips.length}</span>
-          </span>
-
-          <span className={styles.historyMeta}>
-            {numbers.format(totalDistance)}
-            {" km geregistreerd"}
-          </span>
-        </summary>
-
-        {newestFirst.length === 0 ? (
-          <p className={styles.empty}>Nog geen ritten geregistreerd.</p>
-        ) : (
-          <>
-            <p className={styles.historyDescription}>
-              Nieuwste kilometerstanden eerst.
-              {settledRanges.length > 0
-                ? " Voor ritten in een afgerekende periode moet een eigenaar die periode eerst opnieuw openen."
-                : ""}
-            </p>
-
-            <ul className={styles.list}>
-              {visibleTrips.map((trip) => {
-                const locked = isLocked(trip);
-
-                return (
-                  <li key={trip.id} className={styles.trip}>
-                    <div className={styles.tripInfo}>
-                      <p className={styles.driver}>{trip.driverName}</p>
-                      <p className={styles.detail}>{formatTripMoment(trip)}</p>
-                      <p className={styles.detail}>
-                        {numbers.format(trip.startOdometer)}
-                        {" → "}
-                        {numbers.format(trip.endOdometer)} km
-                      </p>
-
-                      {trip.description && (
-                        <p className={styles.description}>{trip.description}</p>
-                      )}
-
-                      {locked && (
-                        <span className={styles.settledBadge}>
-                          Periode afgerekend
-                        </span>
-                      )}
-                    </div>
-
-                    <div className={styles.wideField}>
-                      <strong className={styles.tripDistance}>
-                        {numbers.format(trip.endOdometer - trip.startOdometer)}{" "}
-                        km
-                      </strong>
-
-                      {canEdit(trip) && !locked && (
-                        <ActionGroup>
-                          <ActionButton
-                            icon="edit"
-                            iconOnly
-                            label={`Rit van ${trip.driverName} bewerken`}
-                            className={styles.secondary}
-                            disabled={busy || interactionOpen}
-                            onClick={() => openEditForm(trip)}
-                          />
-
-                          <ActionButton
-                            icon="trash"
-                            iconOnly
-                            danger
-                            label={`Rit van ${trip.driverName} verwijderen`}
-                            className={styles.secondary}
-                            disabled={busy || interactionOpen}
-                            onClick={() => openDeleteForm(trip)}
-                          />
-                        </ActionGroup>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-
-            {pageCount > 1 && (
-              <nav className={styles.pagination} aria-label="Ritten pagineren">
-                <span aria-live="polite">
-                  {firstIndex + 1}–
-                  {Math.min(firstIndex + PAGE_SIZE, newestFirst.length)}
-                  {" van "}
-                  {newestFirst.length}
-                </span>
-
-                <div className={styles.pageActions}>
-                  <ActionButton
-                    icon="arrow-left"
-                    className={styles.secondary}
-                    disabled={currentPage === 0}
-                    onClick={() => setPage(currentPage - 1)}
-                  >
-                    Vorige
-                  </ActionButton>
-
-                  <span>
-                    {currentPage + 1} / {pageCount}
-                  </span>
-
-                  <ActionButton
-                    icon="arrow-right"
-                    className={styles.secondary}
-                    disabled={currentPage === pageCount - 1}
-                    onClick={() => setPage(currentPage + 1)}
-                  >
-                    Volgende
-                  </ActionButton>
-                </div>
-              </nav>
-            )}
-          </>
-        )}
-      </details>
+      <CarTripHistory
+        key={`${organizationId}:${historyRevision}`}
+        organizationId={organizationId}
+        currentUserId={currentUserId}
+        isOwner={isOwner}
+        total={tripCount}
+        totalDistance={totalDistance}
+        open={historyOpen}
+        busy={busy || interactionOpen}
+        onOpenChange={setHistoryOpen}
+        onEdit={openEditForm}
+        onDelete={openDeleteForm}
+      />
     </section>
   );
 }

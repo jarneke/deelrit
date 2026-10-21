@@ -6,14 +6,12 @@ import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import AcceptInvitation from "@/components/accept-invitation";
+import LoadingState from "@/components/loading-state";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
   title: "Uitnodiging | Deelrit",
-  robots: {
-    index: false,
-    follow: false,
-  },
+  robots: { index: false, follow: false },
   referrer: "no-referrer",
 };
 
@@ -29,7 +27,14 @@ type InvitationRow = {
 
 export default function InvitationPage({ params }: Props) {
   return (
-    <Suspense fallback={<p>Uitnodiging laden…</p>}>
+    <Suspense
+      fallback={
+        <LoadingState
+          title="Uitnodiging laden…"
+          description="We controleren je uitnodiging en halen de autogroep op."
+        />
+      }
+    >
       <Invitation params={params} />
     </Suspense>
   );
@@ -77,9 +82,7 @@ async function Invitation({ params }: Props) {
 
   const invitation = result.rows[0];
 
-  if (!invitation) {
-    return <InvalidInvitation />;
-  }
+  if (!invitation) return <InvalidInvitation />;
 
   const membership = await db.query(
     `
@@ -101,7 +104,6 @@ async function Invitation({ params }: Props) {
         </Link>
 
         <p className={styles.eyebrow}>Je bent uitgenodigd</p>
-
         <h1 className={styles.title}>{invitation.name}</h1>
 
         {invitation.license_plate && (

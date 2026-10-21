@@ -4,11 +4,19 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { requireSession } from "@/lib/session";
 import CarGroups from "@/components/car-groups";
+import LoadingState from "@/components/loading-state";
 import styles from "./page.module.css";
 
 export default function Home() {
   return (
-    <Suspense fallback={<p>Auto’s laden…</p>}>
+    <Suspense
+      fallback={
+        <LoadingState
+          title="Je auto’s laden…"
+          description="We halen je gedeelde auto’s op."
+        />
+      }
+    >
       <MyCars />
     </Suspense>
   );
@@ -54,9 +62,7 @@ async function MyCars() {
         </header>
 
         <p className={styles.welcome}>Welkom, {session.user.name}</p>
-
         <h1 className={styles.title}>Mijn auto’s.</h1>
-
         <p className={styles.subtitle}>
           Elke auto heeft zijn eigen groep, ritten en afrekening.
         </p>

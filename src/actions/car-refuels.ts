@@ -4,6 +4,7 @@ import type { PoolClient } from "pg";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { logServerError } from "@/lib/server-error";
 
 type RefuelInput = {
     organizationId: string;
@@ -68,9 +69,7 @@ function validUuid(value: unknown): value is string {
     );
 }
 
-function parseAmountCents(
-    value: unknown,
-): number | null {
+function parseAmountCents(value: unknown): number | null {
     if (typeof value !== "string") {
         return null;
     }
@@ -177,9 +176,7 @@ async function saveRefuel(
         };
     }
 
-    const parsedDate = new Date(
-        `${input.tankDate}T00:00:00Z`,
-    );
+    const parsedDate = new Date(`${input.tankDate}T00:00:00Z`);
 
     const today = new Intl.DateTimeFormat("sv-SE", {
         timeZone: "Europe/Brussels",
@@ -187,8 +184,7 @@ async function saveRefuel(
 
     if (
         Number.isNaN(parsedDate.getTime()) ||
-        parsedDate.toISOString().slice(0, 10) !==
-        input.tankDate ||
+        parsedDate.toISOString().slice(0, 10) !== input.tankDate ||
         input.tankDate < "1900-01-01" ||
         input.tankDate > today
     ) {
@@ -323,18 +319,17 @@ async function saveRefuel(
             );
         }
 
-        const startpointResult =
-            await client.query<StartpointRow>(
-                `
-          SELECT
-            tank_date::text AS tank_date,
-            odometer
-          FROM public.car_startpoint
-          WHERE organization_id = $1
-          FOR SHARE
-        `,
-                [input.organizationId],
-            );
+        const startpointResult = await client.query<StartpointRow>(
+            `
+        SELECT
+          tank_date::text AS tank_date,
+          odometer
+        FROM public.car_startpoint
+        WHERE organization_id = $1
+        FOR SHARE
+      `,
+            [input.organizationId],
+        );
 
         const startpoint = startpointResult.rows[0];
 
@@ -372,8 +367,7 @@ async function saveRefuel(
             {
                 id: edit?.id ?? "new",
                 paid_by: input.paidBy,
-                created_by:
-                    original?.created_by ?? session.user.id,
+                created_by: original?.created_by ?? session.user.id,
                 tank_date: input.tankDate,
                 odometer: input.odometer,
                 amount_cents: amountCents,
@@ -382,8 +376,7 @@ async function saveRefuel(
             },
         ];
 
-        // Bewaak ook de startgrens van andere
-        // afgerekende periodes.
+        // Bewaak ook de startgrens van andere afgerekende periodes.
         const before = periodStarts(rows, startpoint);
         const after = periodStarts(proposed, startpoint);
 
@@ -503,11 +496,21 @@ async function saveRefuel(
         await client.query("COMMIT");
         transactionOpen = false;
     } catch (error) {
+        if (!(error instanceof RefuelValidationError)) {
+            logServerError(
+                edit ? "updateCarRefuel" : "createCarRefuel",
+                error,
+            );
+        }
+
         if (client && transactionOpen) {
             try {
                 await client.query("ROLLBACK");
-            } catch {
-                // De verbinding kan al verbroken zijn.
+            } catch (rollbackError) {
+                logServerError(
+                    edit ? "updateCarRefuel.rollback" : "createCarRefuel.rollback",
+                    rollbackError,
+                );
             }
         }
 
@@ -546,8 +549,7 @@ export async function updateCarRefuel(
     ) {
         return {
             success: false,
-            error:
-                "Ongeldige tankbeurt. Open ze opnieuw.",
+            error: "Ongeldige tankbeurt. Open ze opnieuw.",
         };
     }
 

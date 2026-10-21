@@ -4,6 +4,7 @@ import type { PoolClient } from "pg";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { logServerError } from "@/lib/server-error";
 
 type Input = {
     organizationId: string;
@@ -44,7 +45,9 @@ function validText(value: unknown): value is string {
     );
 }
 
-export async function deleteCarRefuel(input: Input): Promise<Result> {
+export async function deleteCarRefuel(
+    input: Input,
+): Promise<Result> {
     const session = await getSession();
 
     if (!session) {
@@ -71,6 +74,7 @@ export async function deleteCarRefuel(input: Input): Promise<Result> {
 
     try {
         client = await db.connect();
+
         await client.query("BEGIN");
         transactionOpen = true;
 
@@ -85,7 +89,9 @@ export async function deleteCarRefuel(input: Input): Promise<Result> {
         );
 
         if (organization.rowCount !== 1) {
-            throw new DeleteRefuelError("Je hebt geen toegang tot deze auto.");
+            throw new DeleteRefuelError(
+                "Je hebt geen toegang tot deze auto.",
+            );
         }
 
         const members = await client.query<{ role: string }>(
@@ -102,7 +108,9 @@ export async function deleteCarRefuel(input: Input): Promise<Result> {
         const member = members.rows[0];
 
         if (!member) {
-            throw new DeleteRefuelError("Je hebt geen toegang tot deze auto.");
+            throw new DeleteRefuelError(
+                "Je hebt geen toegang tot deze auto.",
+            );
         }
 
         const isOwner = member.role
@@ -181,7 +189,11 @@ export async function deleteCarRefuel(input: Input): Promise<Result> {
           AND updated_at::text = $3
           AND settled_at IS NULL
       `,
-            [input.organizationId, input.refuelId, input.expectedVersion],
+            [
+                input.organizationId,
+                input.refuelId,
+                input.expectedVersion,
+            ],
         );
 
         if (deleted.rowCount !== 1) {
@@ -194,11 +206,15 @@ export async function deleteCarRefuel(input: Input): Promise<Result> {
         await client.query("COMMIT");
         transactionOpen = false;
     } catch (error) {
+        if (!(error instanceof DeleteRefuelError)) {
+            logServerError("deleteCarRefuel", error);
+        }
+
         if (client && transactionOpen) {
             try {
                 await client.query("ROLLBACK");
-            } catch {
-                // De verbinding kan al verbroken zijn.
+            } catch (rollbackError) {
+                logServerError("deleteCarRefuel.rollback", rollbackError);
             }
         }
 
@@ -209,7 +225,8 @@ export async function deleteCarRefuel(input: Input): Promise<Result> {
                     ? error.message
                     : "Verwijderen is niet gelukt. Probeer opnieuw.",
             refreshRequired:
-                error instanceof DeleteRefuelError && error.refreshRequired,
+                error instanceof DeleteRefuelError &&
+                error.refreshRequired,
         };
     } finally {
         client?.release();

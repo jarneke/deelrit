@@ -60,23 +60,7 @@ export default function CarStartpoint({
   }
 
   if (startpoint) {
-    const formattedDate = new Intl.DateTimeFormat("nl-BE", {
-      dateStyle: "long",
-      timeZone: "UTC",
-    }).format(new Date(`${startpoint.tankDate}T00:00:00Z`));
-
-    return (
-      <section className={styles.summary}>
-        <p className={styles.eyebrow}>Startpunt</p>
-
-        <h2 className={styles.odometer}>
-          {new Intl.NumberFormat("nl-BE").format(startpoint.odometer)}
-          <span> km</span>
-        </h2>
-
-        <p className={styles.date}>Volle tank op {formattedDate}</p>
-      </section>
-    );
+    return null;
   }
 
   return (

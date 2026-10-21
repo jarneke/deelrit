@@ -4,6 +4,7 @@ import type { PoolClient } from "pg";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { logServerError } from "@/lib/server-error";
 
 type DeleteTripInput = {
     organizationId: string;
@@ -237,11 +238,15 @@ export async function deleteCarTrip(
         await client.query("COMMIT");
         transactionOpen = false;
     } catch (error) {
+        if (!(error instanceof DeleteTripError)) {
+            logServerError("deleteCarTrip", error);
+        }
+
         if (client && transactionOpen) {
             try {
                 await client.query("ROLLBACK");
-            } catch {
-                // De verbinding kan al verbroken zijn.
+            } catch (rollbackError) {
+                logServerError("deleteCarTrip.rollback", rollbackError);
             }
         }
 

@@ -10,7 +10,9 @@ import {
 import { useRouter } from "next/navigation";
 import { createCarRefuel, updateCarRefuel } from "@/actions/car-refuels";
 import { deleteCarRefuel } from "@/actions/delete-car-refuel";
-import ActionButton, { ActionGroup } from "./action-button";
+import type { RefuelHistoryItem } from "@/lib/car-history-types";
+import ActionButton from "./action-button";
+import CarRefuelHistory from "./car-refuel-history";
 import styles from "./car-trips.module.css";
 
 type Payer = {
@@ -18,17 +20,7 @@ type Payer = {
   name: string;
 };
 
-type Refuel = {
-  id: string;
-  paidBy: string;
-  payerName: string;
-  createdBy: string;
-  version: string;
-  tankDate: string;
-  odometer: number;
-  amountCents: number;
-  settledAt: string | null;
-};
+type LatestRefuel = Omit<RefuelHistoryItem, "boundaryLocked" | "nextRefuel">;
 
 type Props = {
   organizationId: string;
@@ -38,10 +30,11 @@ type Props = {
   startDate: string;
   today: string;
   payers: Payer[];
-  refuels: Refuel[];
+  latestRefuel: LatestRefuel | null;
+  refuelCount: number;
+  historyRevision: string;
 };
 
-const PAGE_SIZE = 5;
 const numbers = new Intl.NumberFormat("nl-BE");
 const euros = new Intl.NumberFormat("nl-BE", {
   style: "currency",
@@ -73,21 +66,26 @@ export default function CarRefuels({
   startDate,
   today,
   payers,
-  refuels,
+  latestRefuel,
+  refuelCount,
+  historyRevision,
 }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const deleteRef = useRef<HTMLDivElement>(null);
 
   const [showForm, setShowForm] = useState(false);
-  const [editingRefuel, setEditingRefuel] = useState<Refuel | null>(null);
-  const [deletingRefuel, setDeletingRefuel] = useState<Refuel | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [editingRefuel, setEditingRefuel] = useState<RefuelHistoryItem | null>(
+    null,
+  );
+  const [deletingRefuel, setDeletingRefuel] =
+    useState<RefuelHistoryItem | null>(null);
   const [paidBy, setPaidBy] = useState(currentUserId);
   const [tankDate, setTankDate] = useState(today);
   const [dateLimit, setDateLimit] = useState(today);
   const [odometer, setOdometer] = useState("");
   const [amount, setAmount] = useState("");
-  const [page, setPage] = useState(0);
   const [saving, setSaving] = useState(false);
   const [refreshing, startRefresh] = useTransition();
   const [error, setError] = useState("");
@@ -111,25 +109,9 @@ export default function CarRefuels({
     });
   }, [showForm, deletingRefuel]);
 
-  const chronological = [...refuels].sort((a, b) => a.odometer - b.odometer);
-  const orderedRefuels = [...chronological].reverse();
-  const latestRefuel = orderedRefuels[0];
   const referenceRefuel = editingRefuel ?? latestRefuel;
-
-  const editingIndex = editingRefuel
-    ? chronological.findIndex((refuel) => refuel.id === editingRefuel.id)
-    : -1;
-
-  const nextRefuel =
-    editingIndex >= 0 ? chronological[editingIndex + 1] : undefined;
-
-  const boundaryLocked = Boolean(editingRefuel && nextRefuel?.settledAt);
-
-  const deletionLockedIds = new Set(
-    chronological
-      .filter((_, index) => Boolean(chronological[index + 1]?.settledAt))
-      .map((refuel) => refuel.id),
-  );
+  const nextRefuel = editingRefuel?.nextRefuel;
+  const boundaryLocked = editingRefuel?.boundaryLocked ?? false;
 
   const formerPayer =
     editingRefuel &&
@@ -137,15 +119,7 @@ export default function CarRefuels({
       ? editingRefuel
       : null;
 
-  const pageCount = Math.max(1, Math.ceil(orderedRefuels.length / PAGE_SIZE));
-  const currentPage = Math.min(page, pageCount - 1);
-  const firstIndex = currentPage * PAGE_SIZE;
-  const visibleRefuels = orderedRefuels.slice(
-    firstIndex,
-    firstIndex + PAGE_SIZE,
-  );
-
-  function canManage(refuel: Refuel) {
+  function canManage(refuel: RefuelHistoryItem) {
     return (
       isOwner ||
       refuel.createdBy === currentUserId ||
@@ -175,7 +149,7 @@ export default function CarRefuels({
     setShowForm(true);
   }
 
-  function openEditForm(refuel: Refuel) {
+  function openEditForm(refuel: RefuelHistoryItem) {
     if (busy || interactionOpen || !canManage(refuel) || refuel.settledAt) {
       return;
     }
@@ -191,13 +165,13 @@ export default function CarRefuels({
     setShowForm(true);
   }
 
-  function openDeleteForm(refuel: Refuel) {
+  function openDeleteForm(refuel: RefuelHistoryItem) {
     if (
       busy ||
       interactionOpen ||
       !canManage(refuel) ||
       refuel.settledAt ||
-      deletionLockedIds.has(refuel.id)
+      refuel.boundaryLocked
     ) {
       return;
     }
@@ -209,6 +183,7 @@ export default function CarRefuels({
 
   function closeForm() {
     if (busy) return;
+
     setShowForm(false);
     setEditingRefuel(null);
     setError("");
@@ -216,6 +191,7 @@ export default function CarRefuels({
 
   function closeDeleteForm() {
     if (busy) return;
+
     setDeletingRefuel(null);
     setError("");
   }
@@ -294,8 +270,6 @@ export default function CarRefuels({
         return;
       }
 
-      if (!editingRefuel) setPage(0);
-
       setNotice(
         editingRefuel ? "Tankbeurt bijgewerkt." : "Tankbeurt opgeslagen.",
       );
@@ -314,6 +288,7 @@ export default function CarRefuels({
       <div className={styles.header}>
         <div>
           <h2>Tankbeurten</h2>
+
           <p className={styles.subtitle}>
             Registreer hier alleen tankbeurten waarbij de tank volledig gevuld
             is.
@@ -420,6 +395,7 @@ export default function CarRefuels({
             {boundaryLocked && nextRefuel && (
               <div className={styles.gapPreview}>
                 <h3>Datum en kilometerstand liggen vast</h3>
+
                 <p>
                   Ze vormen de startgrens van de afgerekende tankperiode die
                   eindigt op {formatDate(nextRefuel.tankDate)}. Een eigenaar
@@ -431,6 +407,7 @@ export default function CarRefuels({
 
             <div className={styles.field}>
               <label htmlFor="refuel-date">Tankdatum</label>
+
               <input
                 id="refuel-date"
                 type="date"
@@ -447,6 +424,7 @@ export default function CarRefuels({
               <label htmlFor="refuel-odometer">
                 Kilometerstand bij het tanken
               </label>
+
               <input
                 id="refuel-odometer"
                 type="number"
@@ -463,6 +441,7 @@ export default function CarRefuels({
 
             <div className={styles.field}>
               <label htmlFor="refuel-amount">Totaal betaald bedrag (€)</label>
+
               <input
                 id="refuel-amount"
                 type="text"
@@ -474,6 +453,7 @@ export default function CarRefuels({
                 aria-describedby="refuel-amount-help"
                 required
               />
+
               <p id="refuel-amount-help" className={styles.detail}>
                 Het volledige bedrag van deze tankbeurt.
               </p>
@@ -481,6 +461,7 @@ export default function CarRefuels({
 
             <div className={styles.field}>
               <label htmlFor="refuel-payer">Wie heeft betaald?</label>
+
               <select
                 id="refuel-payer"
                 value={paidBy}
@@ -547,134 +528,18 @@ export default function CarRefuels({
         </p>
       )}
 
-      <details className={styles.history}>
-        <summary className={styles.historySummary}>
-          <span className={styles.historyHeading}>
-            <span>Tankgeschiedenis</span>
-            <span className={styles.count}>{refuels.length}</span>
-          </span>
-
-          <span className={styles.historyMeta}>Volle tankbeurten</span>
-        </summary>
-
-        {orderedRefuels.length === 0 ? (
-          <p className={styles.empty}>Nog geen tankbeurten geregistreerd.</p>
-        ) : (
-          <>
-            <p className={styles.historyDescription}>
-              Nieuwste kilometerstanden eerst. Afgerekende periodes moet een
-              eigenaar eerst opnieuw openen om bijbehorende tankbeurten te
-              wijzigen of te verwijderen.
-            </p>
-
-            <ul className={styles.list}>
-              {visibleRefuels.map((refuel) => {
-                const deletionLocked = deletionLockedIds.has(refuel.id);
-
-                return (
-                  <li key={refuel.id} className={styles.trip}>
-                    <div className={styles.tripInfo}>
-                      <p className={styles.driver}>
-                        {formatDate(refuel.tankDate)}
-                      </p>
-                      <p className={styles.detail}>
-                        {numbers.format(refuel.odometer)} km
-                      </p>
-                      <p className={styles.detail}>
-                        Betaald door {refuel.payerName}
-                      </p>
-
-                      {refuel.settledAt && (
-                        <span className={styles.settledBadge}>Afgerekend</span>
-                      )}
-
-                      {!refuel.settledAt &&
-                        deletionLocked &&
-                        canManage(refuel) && (
-                          <p className={styles.detail}>
-                            Verwijderen kan na het heropenen van de volgende
-                            afgerekende periode.
-                          </p>
-                        )}
-                    </div>
-
-                    <div className={styles.wideField}>
-                      <strong className={styles.tripDistance}>
-                        {euros.format(refuel.amountCents / 100)}
-                      </strong>
-
-                      {canManage(refuel) && !refuel.settledAt && (
-                        <ActionGroup>
-                          <ActionButton
-                            icon="edit"
-                            iconOnly
-                            label={`Tankbeurt van ${formatDate(refuel.tankDate)} bewerken`}
-                            className={styles.secondary}
-                            disabled={busy || interactionOpen}
-                            onClick={() => openEditForm(refuel)}
-                          />
-
-                          <ActionButton
-                            icon="trash"
-                            iconOnly
-                            danger
-                            label={
-                              deletionLocked
-                                ? "Verwijderen geblokkeerd: de volgende periode is afgerekend"
-                                : `Tankbeurt van ${formatDate(refuel.tankDate)} verwijderen`
-                            }
-                            className={styles.secondary}
-                            disabled={busy || interactionOpen || deletionLocked}
-                            onClick={() => openDeleteForm(refuel)}
-                          />
-                        </ActionGroup>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-
-            {pageCount > 1 && (
-              <nav
-                className={styles.pagination}
-                aria-label="Tankbeurten pagineren"
-              >
-                <span aria-live="polite">
-                  {firstIndex + 1}–
-                  {Math.min(firstIndex + PAGE_SIZE, orderedRefuels.length)}
-                  {" van "}
-                  {orderedRefuels.length}
-                </span>
-
-                <div className={styles.pageActions}>
-                  <ActionButton
-                    icon="arrow-left"
-                    className={styles.secondary}
-                    disabled={currentPage === 0}
-                    onClick={() => setPage(currentPage - 1)}
-                  >
-                    Vorige
-                  </ActionButton>
-
-                  <span>
-                    {currentPage + 1} / {pageCount}
-                  </span>
-
-                  <ActionButton
-                    icon="arrow-right"
-                    className={styles.secondary}
-                    disabled={currentPage === pageCount - 1}
-                    onClick={() => setPage(currentPage + 1)}
-                  >
-                    Volgende
-                  </ActionButton>
-                </div>
-              </nav>
-            )}
-          </>
-        )}
-      </details>
+      <CarRefuelHistory
+        key={`${organizationId}:${historyRevision}`}
+        organizationId={organizationId}
+        currentUserId={currentUserId}
+        isOwner={isOwner}
+        total={refuelCount + 1}
+        open={historyOpen}
+        busy={busy || interactionOpen}
+        onOpenChange={setHistoryOpen}
+        onEdit={openEditForm}
+        onDelete={openDeleteForm}
+      />
     </section>
   );
 }
