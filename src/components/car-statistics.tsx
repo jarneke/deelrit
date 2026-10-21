@@ -223,7 +223,6 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
   const [driver, setDriver] = useState("");
   const [measure, setMeasure] = useState<Measure>("distance");
   const [estimateKm, setEstimateKm] = useState("100");
-  const [budgetKm, setBudgetKm] = useState("500");
   const [selected, setSelected] = useState<ChartRow | null>(null);
   const [tankPage, setTankPage] = useState(0);
 
@@ -251,6 +250,31 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
   const trips = sum(rows, "trips");
   const rate = pricedKm > 0 ? cost / pricedKm : null;
   const previousKm = sum(previous, "distance");
+
+  const usageFrom =
+    data.startDate === null
+      ? null
+      : data.startDate > from
+        ? data.startDate
+        : from;
+
+  const usageDays =
+    usageFrom === null || usageFrom > data.today
+      ? 0
+      : Math.round(
+          (new Date(data.today + "T12:00:00Z").getTime() -
+            new Date(usageFrom + "T12:00:00Z").getTime()) /
+            86400000,
+        ) + 1;
+
+  const usageRows =
+    usageFrom === null ? [] : rows.filter((row) => row.date >= usageFrom);
+
+  const monthlyKm =
+    usageDays > 0 ? (sum(usageRows, "distance") / usageDays) * 30 : null;
+
+  const canEstimateMonth =
+    rate !== null && monthlyKm !== null && sum(usageRows, "trips") > 0;
 
   const completeComparison =
     data.startDate !== null && data.startDate <= previousFrom;
@@ -550,16 +574,18 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
       </div>
 
       <section className={styles.card}>
-        <h2>Wat gaat je volgende rit kosten?</h2>
+        <h2>Wat kosten je ritten en je maandgebruik?</h2>
 
         <p className={styles.small}>
-          Schatting op basis van de geselecteerde periode en bestuurder. Alleen
-          brandstof; dit is geen afrekening.
+          Schat de kost van een rit en bekijk je verwachte maandkost bij
+          hetzelfde rijpatroon. Beide gebruiken de gemiddelde brandstofkost per
+          kilometer van de geselecteerde periode en bestuurder. Dit is geen
+          afrekening.
         </p>
 
         <div className={styles.estimators}>
           <label htmlFor={id + "-trip"}>
-            Afstand van je rit · km
+            Ritafstand (km)
             <input
               id={id + "-trip"}
               type="number"
@@ -572,45 +598,51 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
             <strong className={styles.estimate} aria-live="polite">
               {estimate(estimateKm)}
             </strong>
+            <span className={styles.small}>
+              Geschatte brandstofkost voor deze rit.
+            </span>
           </label>
 
-          <label htmlFor={id + "-budget"}>
-            Je maandbudget bij · km per maand
-            <input
-              id={id + "-budget"}
-              type="number"
-              min="0"
-              max="1000000"
-              step="1"
-              value={budgetKm}
-              onChange={(event) => setBudgetKm(event.target.value)}
-            />
-            <strong className={styles.estimate} aria-live="polite">
-              {estimate(budgetKm)}
-            </strong>
-          </label>
-
-          <div>
+          <div aria-live="polite">
             <span className={styles.muted}>
-              Bij je huidige gebruik · per 30 dagen
+              Maandkost bij je huidige rijpatroon
             </span>
 
-            <strong className={styles.estimate}>
-              {rate === null
-                ? "—"
-                : money(Math.round((distance / period) * 30 * rate))}
-            </strong>
+            {!canEstimateMonth || monthlyKm === null || rate === null ? (
+              <p className={styles.small}>Nog onvoldoende gegevens.</p>
+            ) : (
+              <>
+                <strong className={styles.estimate}>
+                  {money(Math.round(monthlyKm * rate))}
+                </strong>
 
-            <p className={styles.small}>
-              {km((distance / period) * 30)} bij hetzelfde rijpatroon.
-            </p>
+                <p className={styles.small}>
+                  Ongeveer {km(monthlyKm)} per 30 dagen, als je blijft rijden
+                  zoals in deze periode.
+                </p>
+
+                <p className={styles.small}>
+                  Gebaseerd op {usageDays}{" "}
+                  {usageDays === 1 ? "kalenderdag" : "kalenderdagen"}
+                  {usageFrom !== null && (
+                    <>
+                      {" · "}
+                      {dateLabel(usageFrom)} – {dateLabel(data.today)}
+                    </>
+                  )}
+                  . Dagen zonder ritten tellen mee; dagen vóór het startpunt
+                  niet. Vandaag is nog niet volledig.
+                </p>
+              </>
+            )}
           </div>
         </div>
 
         {rate === null && (
           <p className={styles.warning}>
-            Er zijn nog geen kilometers met bekende kosten om een schatting te
-            maken.
+            Er zijn nog geen kilometers met bekende brandstofkosten in de
+            geselecteerde periode voor deze bestuurder(s). Zodra die beschikbaar
+            zijn, verschijnen hier de geschatte bedragen.
           </p>
         )}
       </section>
