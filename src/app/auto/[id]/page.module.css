@@ -56,7 +56,12 @@
 }
 
 .identity {
+  flex: 1;
   min-width: 0;
+}
+
+.identity > div {
+  justify-content: space-between;
 }
 
 .eyebrow {
@@ -69,6 +74,7 @@
 }
 
 .title {
+  min-width: 0;
   margin: 0;
   font-size: 32px;
   letter-spacing: -1px;

@@ -14,7 +14,10 @@ import CarTrips from "@/components/car-trips";
 import CarRefuels from "@/components/car-refuels";
 import CarSettlement from "@/components/car-settlement";
 import CarStatementHistory from "@/components/car-statement-history";
+import CarSettings from "@/components/car-settings";
+import CarCalendar from "@/components/car-calendar";
 import LoadingState from "@/components/loading-state";
+import settingsStyles from "@/components/car-settings.module.css";
 import profileStyles from "@/app/page.module.css";
 import styles from "./page.module.css";
 
@@ -167,13 +170,33 @@ async function CarOverview({ params }: Props) {
 
           <div className={styles.identity}>
             <p className={styles.eyebrow}>Gedeelde auto</p>
-            <h1 className={styles.title}>{car.name}</h1>
+
+            <div className={settingsStyles.titleRow}>
+              <h1 className={styles.title}>{car.name}</h1>
+
+              {isOwner && (
+                <CarSettings
+                  key={id}
+                  organizationId={id}
+                  name={car.name}
+                  licensePlate={car.licensePlate ?? null}
+                />
+              )}
+            </div>
 
             <p className={styles.plate}>
               {car.licensePlate || "Geen nummerplaat ingevuld"}
             </p>
           </div>
         </div>
+
+        <CarCalendar
+          key={id}
+          organizationId={id}
+          currentUserId={session.user.id}
+          isOwner={isOwner}
+          today={today}
+        />
 
         <CarStartpoint
           organizationId={id}
@@ -208,6 +231,7 @@ async function CarOverview({ params }: Props) {
               payers={drivers}
               latestRefuel={overview.latestRefuel}
               refuelCount={overview.refuelCount}
+              totalDistance={undefined}
               historyRevision={overview.refuelHistoryRevision}
             />
 
