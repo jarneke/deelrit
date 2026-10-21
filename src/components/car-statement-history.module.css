@@ -1,0 +1,15 @@
+.fold {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.fold > summary {
+  min-height: 44px;
+}
+
+.fold > summary h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}

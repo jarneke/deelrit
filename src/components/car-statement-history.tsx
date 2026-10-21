@@ -7,6 +7,7 @@ import {
 } from "@/actions/car-settlement";
 import ActionButton from "./action-button";
 import styles from "./car-settlement.module.css";
+import historyStyles from "./car-statement-history.module.css";
 
 const euros = new Intl.NumberFormat("nl-BE", {
   style: "currency",
@@ -99,7 +100,7 @@ export default function CarStatementHistory({
   return (
     <section className={styles.panel}>
       <details
-        className={styles.sectionFold}
+        className={historyStyles.fold}
         onToggle={(event) => setOpen(event.currentTarget.open)}
       >
         <summary>

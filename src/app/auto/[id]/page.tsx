@@ -190,14 +190,6 @@ async function CarOverview({ params }: Props) {
           </div>
         </div>
 
-        <CarCalendar
-          key={id}
-          organizationId={id}
-          currentUserId={session.user.id}
-          isOwner={isOwner}
-          today={today}
-        />
-
         <CarStartpoint
           organizationId={id}
           isOwner={isOwner}
@@ -233,16 +225,24 @@ async function CarOverview({ params }: Props) {
               refuelCount={overview.refuelCount}
               historyRevision={overview.refuelHistoryRevision}
             />
-
-            {overview.settlementOverview && (
-              <CarSettlement
-                organizationId={id}
-                currentUserId={session.user.id}
-                isOwner={isOwner}
-                overview={overview.settlementOverview}
-              />
-            )}
           </>
+        )}
+
+        <CarCalendar
+          key={id}
+          organizationId={id}
+          currentUserId={session.user.id}
+          isOwner={isOwner}
+          today={today}
+        />
+
+        {startpoint && overview.settlementOverview && (
+          <CarSettlement
+            organizationId={id}
+            currentUserId={session.user.id}
+            isOwner={isOwner}
+            overview={overview.settlementOverview}
+          />
         )}
 
         <CarStatementHistory
