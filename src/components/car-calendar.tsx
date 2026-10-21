@@ -424,18 +424,19 @@ function ReservationModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   const canManage =
     !reservation || isOwner || reservation.reservedBy === currentUserId;
 
   const canEdit =
     canManage &&
-    (!reservation || new Date(reservation.startsAt).getTime() > Date.now());
+    (!reservation || new Date(reservation.startsAt).getTime() > now);
 
   const canCancel =
     canManage &&
     reservation !== null &&
-    new Date(reservation.endsAt).getTime() > Date.now();
+    new Date(reservation.endsAt).getTime() > now;
 
   useEffect(() => {
     const element = dialog.current;
@@ -443,6 +444,16 @@ function ReservationModal({
 
     return () => {
       element?.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(interval);
     };
   }, []);
 

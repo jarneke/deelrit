@@ -18,6 +18,7 @@ import CarSettings from "@/components/car-settings";
 import CarCalendar from "@/components/car-calendar";
 import LoadingState from "@/components/loading-state";
 import settingsStyles from "@/components/car-settings.module.css";
+import statisticsStyles from "@/components/car-statistics.module.css";
 import profileStyles from "@/app/page.module.css";
 import styles from "./page.module.css";
 
@@ -174,14 +175,23 @@ async function CarOverview({ params }: Props) {
             <div className={settingsStyles.titleRow}>
               <h1 className={styles.title}>{car.name}</h1>
 
-              {isOwner && (
-                <CarSettings
-                  key={id}
-                  organizationId={id}
-                  name={car.name}
-                  licensePlate={car.licensePlate ?? null}
-                />
-              )}
+              <div className={statisticsStyles.carActions}>
+                <Link
+                  href={"/auto/" + encodeURIComponent(id) + "/statistieken"}
+                  className={statisticsStyles.carLink}
+                >
+                  Statistieken
+                </Link>
+
+                {isOwner && (
+                  <CarSettings
+                    key={id}
+                    organizationId={id}
+                    name={car.name}
+                    licensePlate={car.licensePlate ?? null}
+                  />
+                )}
+              </div>
             </div>
 
             <p className={styles.plate}>
