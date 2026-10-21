@@ -1,4 +1,80 @@
-:root { color-scheme: light; background: #f4f6fa; color: #192c45; font-family: Arial, Helvetica, sans-serif; }
-* { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; }
-button, input, select, textarea { font: inherit; }
+:root {
+  color-scheme: light;
+  background: #f4f6fa;
+  color: #192c45;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* Eén uitklappijl voor alle details-elementen in de app. */
+:root details > summary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-inline-end: 34px;
+  list-style: none;
+  cursor: pointer;
+}
+
+:root details > summary::-webkit-details-marker {
+  display: none;
+}
+
+:root details > summary::marker {
+  content: "";
+}
+
+:root details > summary::before {
+  content: none;
+}
+
+:root details > summary::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: 10px;
+  top: 50%;
+  display: block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin: 0;
+  border: 0;
+  border-right: 1.75px solid #596a80;
+  border-bottom: 1.75px solid #596a80;
+  transform: translateY(-70%) rotate(45deg);
+  transform-origin: center;
+  transition: transform 160ms ease;
+  pointer-events: none;
+}
+
+:root details[open] > summary::after {
+  content: "";
+  transform: translateY(-20%) rotate(225deg);
+}
+
+:root details > summary:focus-visible {
+  outline: 3px solid #3f69dc;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root details > summary::after {
+    transition: none;
+  }
+}

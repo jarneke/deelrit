@@ -26,6 +26,26 @@
   line-height: 1.6;
 }
 
+.calendarFold {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #edf0f5;
+}
+
+.calendarSummary {
+  min-height: 44px;
+  flex-wrap: wrap;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.summaryDate {
+  color: #596a80;
+  font-size: 12px;
+  font-weight: 400;
+}
+
 .primary,
 .secondary {
   min-height: 40px;
@@ -59,7 +79,7 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  margin: 24px 0 18px;
+  margin: 18px 0;
 }
 
 .weekControls {

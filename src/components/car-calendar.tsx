@@ -134,6 +134,7 @@ export default function CarCalendar({
   isOwner,
   today,
 }: Props) {
+  const [open, setOpen] = useState(false);
   const [week, setWeek] = useState(() => mondayOf(today));
   const [data, setData] = useState<ReservationWeek | null>(null);
   const [loading, setLoading] = useState(true);
@@ -146,6 +147,8 @@ export default function CarCalendar({
   } | null>(null);
 
   useEffect(() => {
+    if (!open) return;
+
     let cancelled = false;
 
     async function load() {
@@ -175,7 +178,7 @@ export default function CarCalendar({
     return () => {
       cancelled = true;
     };
-  }, [organizationId, week, retry]);
+  }, [open, organizationId, week, retry]);
 
   function reload() {
     setLoading(true);
@@ -212,125 +215,150 @@ export default function CarCalendar({
         </ActionButton>
       </div>
 
-      <nav className={styles.navigation} aria-label="Kalenderweek">
-        <div className={styles.weekControls}>
-          <ActionButton
-            icon="arrow-left"
-            iconOnly
-            label="Vorige week"
-            className={styles.secondary}
-            disabled={week <= "1900-01-08"}
-            onClick={() => changeWeek(shiftDate(week, -7))}
-          />
-
-          <span className={styles.weekLabel}>
-            {dateLabel(week)} – {dateLabel(shiftDate(week, 6))}
-            {" · "}
-            {week.slice(0, 4)}
-          </span>
-
-          <ActionButton
-            icon="arrow-right"
-            iconOnly
-            label="Volgende week"
-            className={styles.secondary}
-            disabled={week >= "9998-12-21"}
-            onClick={() => changeWeek(shiftDate(week, 7))}
-          />
-        </div>
-
-        <button
-          type="button"
-          className={styles.todayButton}
-          onClick={() => changeWeek(mondayOf(today))}
-        >
-          Deze week
-        </button>
-      </nav>
-
       {notice && (
         <p role="status" className={styles.notice}>
           {notice}
         </p>
       )}
 
-      {loading ? (
-        <p role="status" className={styles.message}>
-          De reserveringen voor deze week laden…
-        </p>
-      ) : error ? (
-        <div className={styles.message}>
-          <p role="alert" className={styles.error}>
-            {error}
-          </p>
-          <ActionButton
-            icon="undo"
-            className={styles.secondary}
-            onClick={reload}
-          >
-            Opnieuw proberen
-          </ActionButton>
-        </div>
-      ) : (
-        <div className={styles.week}>
-          {days.map((day) => {
-            const items =
-              data?.items.filter((item) => appearsOnDay(item, day)) ?? [];
+      <details
+        className={styles.calendarFold}
+        open={open}
+        onToggle={(event) => {
+          const nextOpen = event.currentTarget.open;
 
-            return (
-              <section
-                key={day}
-                className={`${styles.day} ${day === today ? styles.currentDay : ""}`}
-                aria-label={day}
+          if (nextOpen !== open) {
+            setLoading(true);
+            setError("");
+            setOpen(nextOpen);
+          }
+        }}
+      >
+        <summary className={styles.calendarSummary}>
+          <span>Weekagenda</span>
+          <span className={styles.summaryDate}>
+            {dateLabel(week)} – {dateLabel(shiftDate(week, 6))}
+          </span>
+        </summary>
+
+        {open && (
+          <>
+            <nav className={styles.navigation} aria-label="Kalenderweek">
+              <div className={styles.weekControls}>
+                <ActionButton
+                  icon="arrow-left"
+                  iconOnly
+                  label="Vorige week"
+                  className={styles.secondary}
+                  disabled={week <= "1900-01-08"}
+                  onClick={() => changeWeek(shiftDate(week, -7))}
+                />
+
+                <span className={styles.weekLabel}>
+                  {dateLabel(week)} – {dateLabel(shiftDate(week, 6))}
+                  {" · "}
+                  {week.slice(0, 4)}
+                </span>
+
+                <ActionButton
+                  icon="arrow-right"
+                  iconOnly
+                  label="Volgende week"
+                  className={styles.secondary}
+                  disabled={week >= "9998-12-21"}
+                  onClick={() => changeWeek(shiftDate(week, 7))}
+                />
+              </div>
+
+              <button
+                type="button"
+                className={styles.todayButton}
+                onClick={() => changeWeek(mondayOf(today))}
               >
-                <h3 className={styles.dayHeading}>
-                  <span>
-                    {new Intl.DateTimeFormat("nl-BE", {
-                      weekday: "short",
-                      timeZone: "UTC",
-                    }).format(new Date(`${day}T12:00:00.000Z`))}
-                  </span>
-                  <span>{dateLabel(day)}</span>
-                </h3>
+                Deze week
+              </button>
+            </nav>
 
-                <div className={styles.bookings}>
-                  {items.length === 0 ? (
-                    <p className={styles.empty}>Geen reserveringen</p>
-                  ) : (
-                    items.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className={`${styles.booking} ${
-                          item.reservedBy === currentUserId
-                            ? styles.ownBooking
-                            : ""
-                        }`}
-                        onClick={() => {
-                          setNotice("");
-                          setModal({ reservation: item, date: day });
-                        }}
-                      >
-                        <strong>{item.reservedByName}</strong>
+            {loading ? (
+              <p role="status" className={styles.message}>
+                De reserveringen voor deze week laden…
+              </p>
+            ) : error ? (
+              <div className={styles.message}>
+                <p role="alert" className={styles.error}>
+                  {error}
+                </p>
+                <ActionButton
+                  icon="undo"
+                  className={styles.secondary}
+                  onClick={reload}
+                >
+                  Opnieuw proberen
+                </ActionButton>
+              </div>
+            ) : (
+              <div className={styles.week}>
+                {days.map((day) => {
+                  const items =
+                    data?.items.filter((item) => appearsOnDay(item, day)) ?? [];
+
+                  return (
+                    <section
+                      key={day}
+                      className={`${styles.day} ${day === today ? styles.currentDay : ""}`}
+                      aria-label={day}
+                    >
+                      <h3 className={styles.dayHeading}>
                         <span>
-                          {dayTime(item.startsAt, day, false)}
-                          {" – "}
-                          {dayTime(item.endsAt, day, true)}
+                          {new Intl.DateTimeFormat("nl-BE", {
+                            weekday: "short",
+                            timeZone: "UTC",
+                          }).format(new Date(`${day}T12:00:00.000Z`))}
                         </span>
-                        {item.description && (
-                          <span className={styles.preview}>
-                            {item.description}
-                          </span>
+                        <span>{dateLabel(day)}</span>
+                      </h3>
+
+                      <div className={styles.bookings}>
+                        {items.length === 0 ? (
+                          <p className={styles.empty}>Geen reserveringen</p>
+                        ) : (
+                          items.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              className={`${styles.booking} ${
+                                item.reservedBy === currentUserId
+                                  ? styles.ownBooking
+                                  : ""
+                              }`}
+                              onClick={() => {
+                                setNotice("");
+                                setModal({ reservation: item, date: day });
+                              }}
+                            >
+                              <strong>{item.reservedByName}</strong>
+                              <span>
+                                {dayTime(item.startsAt, day, false)}
+                                {" – "}
+                                {dayTime(item.endsAt, day, true)}
+                              </span>
+                              {item.description && (
+                                <span className={styles.preview}>
+                                  {item.description}
+                                </span>
+                              )}
+                            </button>
+                          ))
                         )}
-                      </button>
-                    ))
-                  )}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      )}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </details>
 
       {modal && (
         <ReservationModal
@@ -344,6 +372,7 @@ export default function CarCalendar({
           onSaved={(message, date) => {
             setModal(null);
             setNotice(message);
+            setOpen(true);
             const targetWeek = mondayOf(date);
 
             if (targetWeek !== week) {

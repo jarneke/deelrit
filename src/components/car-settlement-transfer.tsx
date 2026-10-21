@@ -207,7 +207,7 @@ export default function CarSettlementTransfer({
             {money(transfer.amountCents)}
           </strong>
 
-          <span className={styles.detail}>Bekijk opbouw ⌄</span>
+          <span className={styles.detail}>Bekijk opbouw</span>
         </span>
       </summary>
 
@@ -263,7 +263,7 @@ export default function CarSettlementTransfer({
               {transfer.offsetAmountCents > 0 && (
                 <details className={styles.offset}>
                   <summary>
-                    <span>Wederzijds verrekend ⌄</span>
+                    <span>Wederzijds verrekend</span>
                     <strong>− {money(transfer.offsetAmountCents)}</strong>
                   </summary>
 
