@@ -11,6 +11,7 @@ import {
     type SettlementTransfer,
 } from "@/lib/car-settlement";
 import { getCarSettlementSnapshot } from "@/lib/car-settlement-snapshot";
+import { loadCarTripPayers } from "@/lib/car-trip-payers-server";
 
 type Result =
     | { success: true }
@@ -26,6 +27,7 @@ type StartpointRow = {
 };
 
 type TripRow = {
+    id: string;
     driver_id: string;
     driver_name: string;
     start_odometer: number;
@@ -96,11 +98,11 @@ async function loadSettlement(
 ) {
     const startpointResult = await client.query<StartpointRow>(
         `
-      SELECT tank_date::text AS tank_date, odometer
-      FROM public.car_startpoint
-      WHERE organization_id = $1
-      FOR SHARE
-    `,
+        SELECT tank_date::text AS tank_date, odometer
+        FROM public.car_startpoint
+        WHERE organization_id = $1
+        FOR SHARE
+        `,
         [organizationId],
     );
 
@@ -114,37 +116,44 @@ async function loadSettlement(
 
     const refuelResult = await client.query<RefuelRow>(
         `
-      SELECT
-        refuel.id,
-        paid_by,
-        payer.name AS payer_name,
-        tank_date::text AS tank_date,
-        odometer,
-        amount_cents,
-        settled_at
-      FROM public.car_refuel AS refuel
-      JOIN public."user" AS payer ON payer.id = refuel.paid_by
-      WHERE organization_id = $1
-      ORDER BY odometer ASC
-      FOR UPDATE OF refuel
-    `,
+        SELECT
+            refuel.id,
+            paid_by,
+            payer.name AS payer_name,
+            tank_date::text AS tank_date,
+            odometer,
+            amount_cents,
+            settled_at
+        FROM public.car_refuel AS refuel
+        JOIN public."user" AS payer ON payer.id = refuel.paid_by
+        WHERE organization_id = $1
+        ORDER BY odometer ASC
+        FOR UPDATE OF refuel
+        `,
         [organizationId],
     );
 
     const tripResult = await client.query<TripRow>(
         `
-      SELECT
-        driver_id,
-        driver.name AS driver_name,
-        start_odometer,
-        end_odometer
-      FROM public.car_trip AS trip
-      JOIN public."user" AS driver ON driver.id = trip.driver_id
-      WHERE organization_id = $1
-      ORDER BY start_odometer ASC
-      FOR SHARE OF trip
-    `,
+        SELECT
+            trip.id,
+            driver_id,
+            driver.name AS driver_name,
+            start_odometer,
+            end_odometer
+        FROM public.car_trip AS trip
+        JOIN public."user" AS driver ON driver.id = trip.driver_id
+        WHERE organization_id = $1
+        ORDER BY start_odometer ASC
+        FOR SHARE OF trip
+        `,
         [organizationId],
+    );
+
+    const payerMap = await loadCarTripPayers(
+        client,
+        organizationId,
+        tripResult.rows.map((trip) => trip.id),
     );
 
     const source = {
@@ -155,6 +164,7 @@ async function loadSettlement(
         trips: tripResult.rows.map((trip) => ({
             driverId: trip.driver_id,
             driverName: trip.driver_name,
+            payers: payerMap.get(trip.id),
             startOdometer: trip.start_odometer,
             endOdometer: trip.end_odometer,
         })),
@@ -224,14 +234,14 @@ async function saveHistory(
 
     await client.query(
         `
-      INSERT INTO public.car_statement_history (
-        organization_id,
-        created_by,
-        period_ids,
-        snapshot
-      )
-      VALUES ($1, $2, $3::uuid[], $4::jsonb)
-    `,
+        INSERT INTO public.car_statement_history (
+            organization_id,
+            created_by,
+            period_ids,
+            snapshot
+        )
+        VALUES ($1, $2, $3::uuid[], $4::jsonb)
+        `,
         [organizationId, userId, ids, JSON.stringify(snapshot)],
     );
 }
@@ -261,11 +271,11 @@ async function changeSettlement(
 
         const organization = await client.query(
             `
-        SELECT id
-        FROM public.organization
-        WHERE id = $1
-        FOR UPDATE
-      `,
+            SELECT id
+            FROM public.organization
+            WHERE id = $1
+            FOR UPDATE
+            `,
             [organizationId],
         );
 
@@ -277,12 +287,12 @@ async function changeSettlement(
 
         const membership = await client.query<{ role: string }>(
             `
-        SELECT role
-        FROM public.member
-        WHERE "organizationId" = $1
-          AND "userId" = $2
-        FOR SHARE
-      `,
+            SELECT role
+            FROM public.member
+            WHERE "organizationId" = $1
+                AND "userId" = $2
+            FOR SHARE
+            `,
             [organizationId, session.user.id],
         );
 
@@ -382,15 +392,15 @@ export async function setCarPeriodSettled(
 
             await client.query(
                 `
-          UPDATE public.car_refuel
-          SET
-            settled_at = NOW(),
-            settled_by = $3,
-            updated_at = clock_timestamp()
-          WHERE organization_id = $1
-            AND id = $2
-            AND settled_at IS NULL
-        `,
+                UPDATE public.car_refuel
+                SET
+                    settled_at = NOW(),
+                    settled_by = $3,
+                    updated_at = clock_timestamp()
+                WHERE organization_id = $1
+                    AND id = $2
+                    AND settled_at IS NULL
+                `,
                 [organizationId, refuelId, userId],
             );
         } else {
@@ -398,25 +408,25 @@ export async function setCarPeriodSettled(
 
             await client.query(
                 `
-          UPDATE public.car_statement_history
-          SET reopened_at = clock_timestamp()
-          WHERE organization_id = $1
-            AND $2::uuid = ANY(period_ids)
-            AND reopened_at IS NULL
-        `,
+                UPDATE public.car_statement_history
+                SET reopened_at = clock_timestamp()
+                WHERE organization_id = $1
+                    AND $2::uuid = ANY(period_ids)
+                    AND reopened_at IS NULL
+                `,
                 [organizationId, refuelId],
             );
 
             await client.query(
                 `
-          UPDATE public.car_refuel
-          SET
-            settled_at = NULL,
-            settled_by = NULL,
-            updated_at = clock_timestamp()
-          WHERE organization_id = $1
-            AND id = $2
-        `,
+                UPDATE public.car_refuel
+                SET
+                    settled_at = NULL,
+                    settled_by = NULL,
+                    updated_at = clock_timestamp()
+                WHERE organization_id = $1
+                    AND id = $2
+                `,
                 [organizationId, refuelId],
             );
         }
@@ -469,15 +479,15 @@ export async function settleCarStatement(
 
         const result = await client.query(
             `
-        UPDATE public.car_refuel
-        SET
-          settled_at = NOW(),
-          settled_by = $3,
-          updated_at = clock_timestamp()
-        WHERE organization_id = $1
-          AND id = ANY($2::uuid[])
-          AND settled_at IS NULL
-      `,
+            UPDATE public.car_refuel
+            SET
+                settled_at = NOW(),
+                settled_by = $3,
+                updated_at = clock_timestamp()
+            WHERE organization_id = $1
+                AND id = ANY($2::uuid[])
+                AND settled_at IS NULL
+            `,
             [organizationId, ids, userId],
         );
 
@@ -516,36 +526,36 @@ export async function getCarStatementHistory(
             items: StatementHistoryItem[];
         }>(
             `
-        WITH access AS (
-          SELECT 1
-          FROM public.member
-          WHERE "organizationId" = $1
-            AND "userId" = $2
-        ), history AS (
-          SELECT id, created_at, reopened_at, snapshot
-          FROM public.car_statement_history
-          WHERE organization_id = $1
-            AND EXISTS (SELECT 1 FROM access)
-        ), page AS (
-          SELECT *
-          FROM history
-          ORDER BY created_at DESC, id DESC
-          LIMIT 5 OFFSET $3
-        )
-        SELECT
-          EXISTS (SELECT 1 FROM access) AS authorized,
-          (SELECT COUNT(*)::integer FROM history) AS total,
-          COALESCE(
-            (
-              SELECT jsonb_agg(
-                to_jsonb(page)
+            WITH access AS (
+                SELECT 1
+                FROM public.member
+                WHERE "organizationId" = $1
+                    AND "userId" = $2
+            ), history AS (
+                SELECT id, created_at, reopened_at, snapshot
+                FROM public.car_statement_history
+                WHERE organization_id = $1
+                    AND EXISTS (SELECT 1 FROM access)
+            ), page AS (
+                SELECT *
+                FROM history
                 ORDER BY created_at DESC, id DESC
-              )
-              FROM page
-            ),
-            '[]'::jsonb
-          ) AS items
-      `,
+                LIMIT 5 OFFSET $3
+            )
+            SELECT
+                EXISTS (SELECT 1 FROM access) AS authorized,
+                (SELECT COUNT(*)::integer FROM history) AS total,
+                COALESCE(
+                    (
+                        SELECT jsonb_agg(
+                            to_jsonb(page)
+                            ORDER BY created_at DESC, id DESC
+                        )
+                        FROM page
+                    ),
+                    '[]'::jsonb
+                ) AS items
+            `,
             [organizationId, session.user.id, page * 5],
         );
 

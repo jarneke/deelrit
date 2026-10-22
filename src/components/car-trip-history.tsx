@@ -3,8 +3,14 @@
 import { useEffect, useState } from "react";
 import { getCarTripHistoryPage } from "@/actions/car-history";
 import type { HistoryPage, TripHistoryItem } from "@/lib/car-history-types";
+import {
+  formatTripPayers,
+  getTripPayerId,
+  getTripPayers,
+} from "@/lib/car-trip-payers";
 import ActionButton, { ActionGroup } from "./action-button";
 import styles from "./car-trips.module.css";
+import historyStyles from "./car-trip-history.module.css";
 
 type Props = {
   organizationId: string;
@@ -20,6 +26,7 @@ type Props = {
 };
 
 const numbers = new Intl.NumberFormat("nl-BE");
+const shares = ["", "100%", "50%", "1/3", "25%", "20%"];
 
 function formatTripMoment(trip: TripHistoryItem) {
   if (!trip.endedAt) {
@@ -100,7 +107,9 @@ export default function CarTripHistory({
     return (
       isOwner ||
       trip.createdBy === currentUserId ||
-      trip.driverId === currentUserId
+      getTripPayers(trip).some(
+        (payer) => payer.kind === "member" && payer.userId === currentUserId,
+      )
     );
   }
 
@@ -171,61 +180,110 @@ export default function CarTripHistory({
           ) : (
             <>
               <ul className={styles.list}>
-                {data.items.map((trip) => (
-                  <li key={trip.id} className={styles.trip}>
-                    <div className={styles.tripInfo}>
-                      <p className={styles.driver}>{trip.driverName}</p>
+                {data.items.map((trip) => {
+                  const payers = getTripPayers(trip);
+                  const payerNames = formatTripPayers(trip);
+                  const shared = payers.length > 1;
 
-                      <p className={styles.detail}>{formatTripMoment(trip)}</p>
+                  return (
+                    <li
+                      key={trip.id}
+                      className={`${styles.trip} ${historyStyles.trip}`}
+                    >
+                      <div className={historyStyles.info}>
+                        <p className={styles.driver}>
+                          {shared ? "Gedeelde rit" : payers[0].name}
+                        </p>
 
-                      <p className={styles.detail}>
-                        {numbers.format(trip.startOdometer)}
-                        {" → "}
-                        {numbers.format(trip.endOdometer)} km
-                      </p>
+                        {shared ? (
+                          <>
+                            <ul
+                              className={historyStyles.payers}
+                              aria-label="Betalers van deze rit"
+                            >
+                              {payers.map((payer) => (
+                                <li
+                                  key={getTripPayerId(payer)}
+                                  className={historyStyles.payer}
+                                >
+                                  <span className={historyStyles.name}>
+                                    {payer.name}
+                                  </span>
 
-                      {trip.description && (
-                        <p className={styles.description}>{trip.description}</p>
-                      )}
+                                  {payer.kind === "guest" && (
+                                    <span className={historyStyles.guest}>
+                                      gast
+                                    </span>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
 
-                      {trip.settledLocked && (
-                        <span className={styles.settledBadge}>
-                          Periode afgerekend
-                        </span>
-                      )}
-                    </div>
+                            <p className={styles.detail}>
+                              Ieder {shares[payers.length]} van de ritkost
+                            </p>
+                          </>
+                        ) : payers[0].kind === "guest" ? (
+                          <p className={styles.detail}>Gast zonder account</p>
+                        ) : null}
 
-                    <div className={styles.wideField}>
-                      <strong className={styles.tripDistance}>
-                        {numbers.format(trip.endOdometer - trip.startOdometer)}{" "}
-                        km
-                      </strong>
+                        <p className={styles.detail}>
+                          {formatTripMoment(trip)}
+                        </p>
 
-                      {canManage(trip) && !trip.settledLocked && (
-                        <ActionGroup>
-                          <ActionButton
-                            icon="edit"
-                            iconOnly
-                            label={`Rit van ${trip.driverName} bewerken`}
-                            className={styles.secondary}
-                            disabled={busy}
-                            onClick={() => onEdit(trip)}
-                          />
+                        <p className={styles.detail}>
+                          {numbers.format(trip.startOdometer)}
+                          {" → "}
+                          {numbers.format(trip.endOdometer)} km
+                        </p>
 
-                          <ActionButton
-                            icon="trash"
-                            iconOnly
-                            danger
-                            label={`Rit van ${trip.driverName} verwijderen`}
-                            className={styles.secondary}
-                            disabled={busy}
-                            onClick={() => onDelete(trip)}
-                          />
-                        </ActionGroup>
-                      )}
-                    </div>
-                  </li>
-                ))}
+                        {trip.description && (
+                          <p className={styles.description}>
+                            {trip.description}
+                          </p>
+                        )}
+
+                        {trip.settledLocked && (
+                          <span className={styles.settledBadge}>
+                            Periode afgerekend
+                          </span>
+                        )}
+                      </div>
+
+                      <div className={historyStyles.actions}>
+                        <strong className={styles.tripDistance}>
+                          {numbers.format(
+                            trip.endOdometer - trip.startOdometer,
+                          )}{" "}
+                          km
+                        </strong>
+
+                        {canManage(trip) && !trip.settledLocked && (
+                          <ActionGroup>
+                            <ActionButton
+                              icon="edit"
+                              iconOnly
+                              label={`Rit van ${payerNames} bewerken`}
+                              className={styles.secondary}
+                              disabled={busy}
+                              onClick={() => onEdit(trip)}
+                            />
+
+                            <ActionButton
+                              icon="trash"
+                              iconOnly
+                              danger
+                              label={`Rit van ${payerNames} verwijderen`}
+                              className={styles.secondary}
+                              disabled={busy}
+                              onClick={() => onDelete(trip)}
+                            />
+                          </ActionGroup>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
 
               {pageCount > 1 && (

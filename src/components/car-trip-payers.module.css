@@ -1,0 +1,187 @@
+.editor {
+  min-width: 0;
+  color: #192c45;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.count {
+  margin: 4px 0 0;
+  color: #596a80;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.add,
+.remove {
+  min-height: 44px;
+  border: 1px solid #ccd5e2;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #3157be;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.add {
+  padding: 10px 12px;
+}
+
+.remove {
+  padding: 10px;
+}
+
+.add:hover:not(:disabled),
+.remove:hover:not(:disabled) {
+  background: #edf2fd;
+}
+
+.add:disabled,
+.remove:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.add:focus-visible,
+.remove:focus-visible {
+  outline: 3px solid #3f69dc;
+  outline-offset: 3px;
+}
+
+.list {
+  margin-top: 8px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 48px;
+  align-items: start;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-top: 27px;
+  border-radius: 50%;
+  background: #edf2fd;
+  color: #3157be;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.editor .label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.editor .control {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #ccd5e2;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #192c45;
+  font: inherit;
+  font-size: 16px;
+}
+
+.editor .control:focus-visible,
+.editor .guestToggle input:focus-visible {
+  outline: 3px solid #3f69dc;
+  outline-offset: 3px;
+}
+
+.editor .guestToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: #596a80;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.6;
+  cursor: pointer;
+}
+
+.editor .guestToggle input {
+  box-sizing: border-box;
+  flex: 0 0 18px;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border-radius: 3px;
+  accent-color: #3f69dc;
+  cursor: pointer;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding-top: 31px;
+}
+
+.share {
+  color: #3157be;
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.explanation {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f0f4fd;
+  color: #3157be;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+@media (max-width: 380px) {
+  .row {
+    grid-template-columns: 24px minmax(0, 1fr) 44px;
+    gap: 8px;
+  }
+
+  .number {
+    width: 24px;
+    height: 24px;
+    margin-top: 30px;
+  }
+
+  .editor .control {
+    padding: 10px;
+  }
+}

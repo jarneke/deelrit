@@ -1,6 +1,9 @@
+import type { TripPayer } from "@/lib/car-trip-payers";
+
 export type SettlementTrip = {
     driverId: string;
     driverName: string;
+    payers?: TripPayer[];
     startOdometer: number;
     endOdometer: number;
 };
@@ -96,13 +99,13 @@ export type CarSettlement = {
 function divideCost(
     amountCents: number,
     totalDistance: number,
-    drivers: DriverDistance[],
+    drivers: (DriverDistance & { distanceUnits: number })[],
 ): DriverShare[] {
-    const denominator = BigInt(totalDistance);
+    const denominator = BigInt(totalDistance * 60);
 
     const allocations = drivers.map((driver) => {
         const numerator =
-            BigInt(amountCents) * BigInt(driver.distance);
+            BigInt(amountCents) * BigInt(driver.distanceUnits);
 
         return {
             ...driver,
@@ -169,12 +172,9 @@ export function calculateCarSettlement(
     const periods: SettlementPeriod[] = [];
     const settledPeriods: SettlementPeriod[] = [];
 
-    const balanceMap = new Map<
-        string,
-        SettlementBalance
-    >();
+    const balanceMap = new Map<string, SettlementBalance>();
 
-    // Bestuurder -> betaler -> bijdragen per tankperiode.
+    // Deelnemer -> tankbetaler -> bijdragen per tankperiode.
     const paymentMap = new Map<
         string,
         Map<string, PaymentSource[]>
@@ -228,9 +228,7 @@ export function calculateCarSettlement(
         fromUserId: string,
         toUserId: string,
     ): PaymentSource[] {
-        return (
-            paymentMap.get(fromUserId)?.get(toUserId) ?? []
-        );
+        return paymentMap.get(fromUserId)?.get(toUserId) ?? [];
     }
 
     let periodStart = startpoint.odometer;
@@ -247,7 +245,7 @@ export function calculateCarSettlement(
 
         const driverDistances = new Map<
             string,
-            DriverDistance
+            DriverDistance & { distanceUnits: number }
         >();
 
         let coveredUntil = periodStart;
@@ -281,17 +279,56 @@ export function calculateCarSettlement(
 
             coveredUntil = Math.max(coveredUntil, end);
 
-            const existing = driverDistances.get(
-                trip.driverId,
+            const payers: TripPayer[] = trip.payers?.length
+                ? trip.payers
+                : [
+                    {
+                        kind: "member",
+                        userId: trip.driverId,
+                        name: trip.driverName,
+                    },
+                ];
+
+            if (payers.length > 5) {
+                throw new Error(
+                    "Een rit kan maximaal vijf betalers hebben.",
+                );
+            }
+
+            const identities = payers.map((payer) =>
+                payer.kind === "member"
+                    ? payer.userId
+                    : `guest:${payer.guestId}`,
             );
 
-            if (existing) {
-                existing.distance += end - start;
-            } else {
-                driverDistances.set(trip.driverId, {
-                    userId: trip.driverId,
-                    name: trip.driverName,
-                    distance: end - start,
+            if (new Set(identities).size !== identities.length) {
+                throw new Error(
+                    "Een rit bevat dezelfde betaler meerdere keren.",
+                );
+            }
+
+            // 60 is deelbaar door 1, 2, 3, 4 en 5.
+            // Zo blijven de rekengewichten gehele getallen,
+            // ook bij bijvoorbeeld één kilometer met drie betalers.
+            const distanceUnits =
+                ((end - start) * 60) / payers.length;
+
+            for (let index = 0; index < payers.length; index += 1) {
+                const payer = payers[index];
+                const userId = identities[index];
+                const existing = driverDistances.get(userId);
+
+                const totalUnits =
+                    (existing?.distanceUnits ?? 0) + distanceUnits;
+
+                driverDistances.set(userId, {
+                    userId,
+                    name:
+                        payer.kind === "guest"
+                            ? `${payer.name} (gast)`
+                            : payer.name,
+                    distanceUnits: totalUnits,
+                    distance: totalUnits / 60,
                 });
             }
         }
@@ -303,8 +340,7 @@ export function calculateCarSettlement(
             });
         }
 
-        const distance =
-            refuel.odometer - periodStart;
+        const distance = refuel.odometer - periodStart;
 
         const missingDistance = gaps.reduce(
             (total, gap) => total + gap.end - gap.start,
@@ -363,12 +399,12 @@ export function calculateCarSettlement(
             payer.paidCents += period.amountCents;
 
             for (const share of period.shares) {
-                const driver = getBalance(
+                const participant = getBalance(
                     share.userId,
                     share.name,
                 );
 
-                driver.shareCents += share.amountCents;
+                participant.shareCents += share.amountCents;
 
                 // Iemands eigen aandeel vereist geen betaling
                 // aan zichzelf.
@@ -438,24 +474,17 @@ export function calculateCarSettlement(
                 first.userId,
             );
 
-            const forwardCents =
-                sumSources(forwardSources);
+            const forwardCents = sumSources(forwardSources);
+            const backwardCents = sumSources(backwardSources);
 
-            const backwardCents =
-                sumSources(backwardSources);
-
-            const netCents =
-                forwardCents - backwardCents;
+            const netCents = forwardCents - backwardCents;
 
             if (netCents === 0) {
                 continue;
             }
 
-            const from =
-                netCents > 0 ? first : second;
-
-            const to =
-                netCents > 0 ? second : first;
+            const from = netCents > 0 ? first : second;
+            const to = netCents > 0 ? second : first;
 
             transfers.push({
                 fromUserId: from.userId,

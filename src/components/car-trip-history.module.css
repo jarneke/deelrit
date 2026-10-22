@@ -1,0 +1,65 @@
+.trip.trip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 94px;
+  align-items: start;
+  gap: 16px;
+}
+
+.info {
+  min-width: 0;
+}
+
+.payers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.payer {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: #f0f4fd;
+  color: #29456a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.guest {
+  color: #69788d;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  width: 94px;
+  min-width: 94px;
+}
+
+.actions > div {
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 420px) {
+  .trip.trip {
+    gap: 12px;
+  }
+}

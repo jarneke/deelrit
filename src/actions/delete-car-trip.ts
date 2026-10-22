@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logServerError } from "@/lib/server-error";
+import { loadCarTripPayers } from "@/lib/car-trip-payers-server";
 
 type DeleteTripInput = {
     organizationId: string;
@@ -75,11 +76,11 @@ export async function deleteCarTrip(
 
         const organization = await client.query(
             `
-        SELECT id
-        FROM public.organization
-        WHERE id = $1
-        FOR UPDATE
-      `,
+            SELECT id
+            FROM public.organization
+            WHERE id = $1
+            FOR UPDATE
+            `,
             [input.organizationId],
         );
 
@@ -93,12 +94,12 @@ export async function deleteCarTrip(
             role: string;
         }>(
             `
-        SELECT role
-        FROM public.member
-        WHERE "organizationId" = $1
-          AND "userId" = $2
-        FOR SHARE
-      `,
+            SELECT role
+            FROM public.member
+            WHERE "organizationId" = $1
+                AND "userId" = $2
+            FOR SHARE
+            `,
             [input.organizationId, session.user.id],
         );
 
@@ -123,17 +124,17 @@ export async function deleteCarTrip(
             version: string;
         }>(
             `
-        SELECT
-          driver_id,
-          created_by,
-          start_odometer,
-          end_odometer,
-          updated_at::text AS version
-        FROM public.car_trip
-        WHERE organization_id = $1
-          AND id = $2
-        FOR UPDATE
-      `,
+            SELECT
+                driver_id,
+                created_by,
+                start_odometer,
+                end_odometer,
+                updated_at::text AS version
+            FROM public.car_trip
+            WHERE organization_id = $1
+                AND id = $2
+            FOR UPDATE
+            `,
             [input.organizationId, input.tripId],
         );
 
@@ -146,13 +147,29 @@ export async function deleteCarTrip(
             );
         }
 
+        const payerMap = await loadCarTripPayers(
+            client,
+            input.organizationId,
+            [input.tripId],
+        );
+
+        const explicitPayers = payerMap.get(input.tripId);
+
+        const actorIsPayer = explicitPayers
+            ? explicitPayers.some(
+                (payer) =>
+                    payer.kind === "member" &&
+                    payer.userId === session.user.id,
+            )
+            : trip.driver_id === session.user.id;
+
         if (
             !isOwner &&
             trip.created_by !== session.user.id &&
-            trip.driver_id !== session.user.id
+            !actorIsPayer
         ) {
             throw new DeleteTripError(
-                "Je kunt alleen ritten verwijderen die je zelf invoerde of reed.",
+                "Je kunt alleen ritten verwijderen die je zelf invoerde of waarvoor je mee betaalt.",
             );
         }
 
@@ -167,11 +184,11 @@ export async function deleteCarTrip(
             odometer: number;
         }>(
             `
-        SELECT odometer
-        FROM public.car_startpoint
-        WHERE organization_id = $1
-        FOR SHARE
-      `,
+            SELECT odometer
+            FROM public.car_startpoint
+            WHERE organization_id = $1
+            FOR SHARE
+            `,
             [input.organizationId],
         );
 
@@ -188,12 +205,12 @@ export async function deleteCarTrip(
             settled_at: Date | null;
         }>(
             `
-        SELECT odometer, settled_at
-        FROM public.car_refuel
-        WHERE organization_id = $1
-        ORDER BY odometer ASC
-        FOR SHARE
-      `,
+            SELECT odometer, settled_at
+            FROM public.car_refuel
+            WHERE organization_id = $1
+            ORDER BY odometer ASC
+            FOR SHARE
+            `,
             [input.organizationId],
         );
 
@@ -216,11 +233,11 @@ export async function deleteCarTrip(
 
         const deleted = await client.query(
             `
-        DELETE FROM public.car_trip
-        WHERE organization_id = $1
-          AND id = $2
-          AND updated_at::text = $3
-      `,
+            DELETE FROM public.car_trip
+            WHERE organization_id = $1
+                AND id = $2
+                AND updated_at::text = $3
+            `,
             [
                 input.organizationId,
                 input.tripId,
@@ -265,6 +282,7 @@ export async function deleteCarTrip(
     }
 
     revalidatePath(`/auto/${input.organizationId}`);
+    revalidatePath(`/auto/${input.organizationId}/statistieken`);
 
     return { success: true };
 }

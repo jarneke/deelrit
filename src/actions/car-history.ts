@@ -4,6 +4,7 @@ import type { PoolClient } from "pg";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logServerError } from "@/lib/server-error";
+import { loadCarTripPayers } from "@/lib/car-trip-payers-server";
 import type {
     HistoryResult,
     HistoryStartpoint,
@@ -110,7 +111,8 @@ async function loadHistoryPage<T>(
 
         client = await db.connect();
 
-        // Lidmaatschap, telling en pagina gebruiken dezelfde database-snapshot.
+        // Lidmaatschap, telling, ritten en betalers gebruiken
+        // dezelfde database-snapshot.
         await client.query(
             "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY",
         );
@@ -118,12 +120,12 @@ async function loadHistoryPage<T>(
 
         const membership = await client.query(
             `
-        SELECT id
-        FROM public.member
-        WHERE "organizationId" = $1
-          AND "userId" = $2
-        LIMIT 1
-      `,
+            SELECT id
+            FROM public.member
+            WHERE "organizationId" = $1
+                AND "userId" = $2
+            LIMIT 1
+            `,
             [organizationId, session.user.id],
         );
 
@@ -135,10 +137,10 @@ async function loadHistoryPage<T>(
 
         const startpointResult = await client.query<StartpointRow>(
             `
-        SELECT tank_date::text AS tank_date, odometer
-        FROM public.car_startpoint
-        WHERE organization_id = $1
-      `,
+            SELECT tank_date::text AS tank_date, odometer
+            FROM public.car_startpoint
+            WHERE organization_id = $1
+            `,
             [organizationId],
         );
 
@@ -159,10 +161,10 @@ async function loadHistoryPage<T>(
 
         const countResult = await client.query<{ total: string }>(
             `
-        SELECT COUNT(*)::text AS total
-        FROM ${table}
-        WHERE organization_id = $1
-      `,
+            SELECT COUNT(*)::text AS total
+            FROM ${table}
+            WHERE organization_id = $1
+            `,
             [organizationId],
         );
 
@@ -248,44 +250,44 @@ export async function getCarTripHistoryPage(
 
             const result = await client.query<TripRow>(
                 `
-          WITH periods AS (
-            SELECT
-              odometer AS end_odometer,
-              lag(odometer, 1, $2::integer) OVER (
-                ORDER BY odometer ASC
-              ) AS start_odometer,
-              settled_at
-            FROM public.car_refuel
-            WHERE organization_id = $1
-          )
-          SELECT
-            trip.id,
-            trip.driver_id,
-            driver.name AS driver_name,
-            trip.created_by,
-            trip.updated_at::text AS version,
-            trip.trip_date::text AS trip_date,
-            trip.ended_at,
-            trip.start_odometer,
-            trip.end_odometer,
-            trip.description,
-            EXISTS (
-              SELECT 1
-              FROM periods
-              WHERE periods.settled_at IS NOT NULL
-                AND trip.start_odometer < periods.end_odometer
-                AND trip.end_odometer > periods.start_odometer
-            ) AS settled_locked
-          FROM public.car_trip AS trip
-          JOIN public."user" AS driver
-            ON driver.id = trip.driver_id
-          WHERE trip.organization_id = $1
-          ORDER BY
-            trip.start_odometer DESC,
-            trip.end_odometer DESC,
-            trip.id DESC
-          LIMIT $3 OFFSET $4
-        `,
+                WITH periods AS (
+                    SELECT
+                        odometer AS end_odometer,
+                        lag(odometer, 1, $2::integer) OVER (
+                            ORDER BY odometer ASC
+                        ) AS start_odometer,
+                        settled_at
+                    FROM public.car_refuel
+                    WHERE organization_id = $1
+                )
+                SELECT
+                    trip.id,
+                    trip.driver_id,
+                    driver.name AS driver_name,
+                    trip.created_by,
+                    trip.updated_at::text AS version,
+                    trip.trip_date::text AS trip_date,
+                    trip.ended_at,
+                    trip.start_odometer,
+                    trip.end_odometer,
+                    trip.description,
+                    EXISTS (
+                        SELECT 1
+                        FROM periods
+                        WHERE periods.settled_at IS NOT NULL
+                            AND trip.start_odometer < periods.end_odometer
+                            AND trip.end_odometer > periods.start_odometer
+                    ) AS settled_locked
+                FROM public.car_trip AS trip
+                JOIN public."user" AS driver
+                    ON driver.id = trip.driver_id
+                WHERE trip.organization_id = $1
+                ORDER BY
+                    trip.start_odometer DESC,
+                    trip.end_odometer DESC,
+                    trip.id DESC
+                LIMIT $3 OFFSET $4
+                `,
                 [
                     organizationId,
                     startpoint.odometer,
@@ -294,10 +296,17 @@ export async function getCarTripHistoryPage(
                 ],
             );
 
+            const payerMap = await loadCarTripPayers(
+                client,
+                organizationId,
+                result.rows.map((trip) => trip.id),
+            );
+
             return result.rows.map((trip) => ({
                 id: trip.id,
                 driverId: trip.driver_id,
                 driverName: trip.driver_name,
+                payers: payerMap.get(trip.id),
                 createdBy: trip.created_by,
                 version: trip.version,
                 tripDate: trip.trip_date,
@@ -329,38 +338,38 @@ export async function getCarRefuelHistoryPage(
         }) => {
             const result = await client.query<RefuelRow>(
                 `
-          WITH ordered_refuels AS (
-            SELECT
-              refuel.id,
-              refuel.paid_by,
-              refuel.created_by,
-              refuel.updated_at::text AS version,
-              refuel.tank_date::text AS tank_date,
-              refuel.odometer,
-              refuel.amount_cents,
-              refuel.settled_at,
-              (
-                lead(refuel.tank_date) OVER (
-                  ORDER BY refuel.odometer ASC
+                WITH ordered_refuels AS (
+                    SELECT
+                        refuel.id,
+                        refuel.paid_by,
+                        refuel.created_by,
+                        refuel.updated_at::text AS version,
+                        refuel.tank_date::text AS tank_date,
+                        refuel.odometer,
+                        refuel.amount_cents,
+                        refuel.settled_at,
+                        (
+                            lead(refuel.tank_date) OVER (
+                                ORDER BY refuel.odometer ASC
+                            )
+                        )::text AS next_tank_date,
+                        lead(refuel.settled_at) OVER (
+                            ORDER BY refuel.odometer ASC
+                        ) AS next_settled_at
+                    FROM public.car_refuel AS refuel
+                    WHERE refuel.organization_id = $1
                 )
-              )::text AS next_tank_date,
-              lead(refuel.settled_at) OVER (
-                ORDER BY refuel.odometer ASC
-              ) AS next_settled_at
-            FROM public.car_refuel AS refuel
-            WHERE refuel.organization_id = $1
-          )
-          SELECT
-            ordered_refuels.*,
-            payer.name AS payer_name
-          FROM ordered_refuels
-          JOIN public."user" AS payer
-            ON payer.id = ordered_refuels.paid_by
-          ORDER BY
-            ordered_refuels.odometer DESC,
-            ordered_refuels.id DESC
-          LIMIT $2 OFFSET $3
-        `,
+                SELECT
+                    ordered_refuels.*,
+                    payer.name AS payer_name
+                FROM ordered_refuels
+                JOIN public."user" AS payer
+                    ON payer.id = ordered_refuels.paid_by
+                ORDER BY
+                    ordered_refuels.odometer DESC,
+                    ordered_refuels.id DESC
+                LIMIT $2 OFFSET $3
+                `,
                 [organizationId, pageSize, offset],
             );
 
@@ -383,7 +392,8 @@ export async function getCarRefuelHistoryPage(
                                 ? {
                                     tankDate: refuel.next_tank_date,
                                     settledAt:
-                                        refuel.next_settled_at?.toISOString() ?? null,
+                                        refuel.next_settled_at?.toISOString() ??
+                                        null,
                                 }
                                 : null,
                     },

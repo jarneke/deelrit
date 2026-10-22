@@ -3,6 +3,7 @@ import "server-only";
 import type { PoolClient } from "pg";
 import { db } from "@/lib/db";
 import { logServerError } from "@/lib/server-error";
+import { loadCarTripPayers } from "@/lib/car-trip-payers-server";
 import {
     calculateCarStatistics,
     type StatisticsTrip,
@@ -30,17 +31,17 @@ export async function loadCarStatistics(
             license_plate: string | null;
         }>(
             `
-                SELECT
-                    organization.name,
-                    organization."licensePlate" AS license_plate
-                FROM public.organization AS organization
-                WHERE organization.id = $1
-                  AND EXISTS (
-                      SELECT 1
-                      FROM public.member
-                      WHERE "organizationId" = organization.id
+            SELECT
+                organization.name,
+                organization."licensePlate" AS license_plate
+            FROM public.organization AS organization
+            WHERE organization.id = $1
+                AND EXISTS (
+                    SELECT 1
+                    FROM public.member
+                    WHERE "organizationId" = organization.id
                         AND "userId" = $2
-                  )
+                )
             `,
             [organizationId, userId],
         );
@@ -58,9 +59,9 @@ export async function loadCarStatistics(
             odometer: number;
         }>(
             `
-                SELECT tank_date::text AS tank_date, odometer
-                FROM public.car_startpoint
-                WHERE organization_id = $1
+            SELECT tank_date::text AS tank_date, odometer
+            FROM public.car_startpoint
+            WHERE organization_id = $1
             `,
             [organizationId],
         );
@@ -70,11 +71,11 @@ export async function loadCarStatistics(
             name: string;
         }>(
             `
-                SELECT member."userId", person.name
-                FROM public.member AS member
-                JOIN public."user" AS person
-                  ON person.id = member."userId"
-                WHERE member."organizationId" = $1
+            SELECT member."userId", person.name
+            FROM public.member AS member
+            JOIN public."user" AS person
+                ON person.id = member."userId"
+            WHERE member."organizationId" = $1
             `,
             [organizationId],
         );
@@ -88,23 +89,29 @@ export async function loadCarStatistics(
             end_odometer: number;
         }>(
             `
-                SELECT
-                    trip.id,
-                    trip.driver_id,
-                    person.name AS driver_name,
-                    trip.trip_date::text AS trip_date,
-                    trip.start_odometer,
-                    trip.end_odometer
-                FROM public.car_trip AS trip
-                JOIN public."user" AS person
-                  ON person.id = trip.driver_id
-                WHERE trip.organization_id = $1
-                ORDER BY
-                    trip.start_odometer,
-                    trip.end_odometer,
-                    trip.id
+            SELECT
+                trip.id,
+                trip.driver_id,
+                person.name AS driver_name,
+                trip.trip_date::text AS trip_date,
+                trip.start_odometer,
+                trip.end_odometer
+            FROM public.car_trip AS trip
+            JOIN public."user" AS person
+                ON person.id = trip.driver_id
+            WHERE trip.organization_id = $1
+            ORDER BY
+                trip.start_odometer,
+                trip.end_odometer,
+                trip.id
             `,
             [organizationId],
+        );
+
+        const payerMap = await loadCarTripPayers(
+            client,
+            organizationId,
+            tripResult.rows.map((trip) => trip.id),
         );
 
         const refuelResult = await client.query<{
@@ -117,19 +124,19 @@ export async function loadCarStatistics(
             settled_at: Date | null;
         }>(
             `
-                SELECT
-                    refuel.id,
-                    refuel.paid_by,
-                    person.name AS payer_name,
-                    refuel.tank_date::text AS tank_date,
-                    refuel.odometer,
-                    refuel.amount_cents,
-                    refuel.settled_at
-                FROM public.car_refuel AS refuel
-                JOIN public."user" AS person
-                  ON person.id = refuel.paid_by
-                WHERE refuel.organization_id = $1
-                ORDER BY refuel.odometer, refuel.id
+            SELECT
+                refuel.id,
+                refuel.paid_by,
+                person.name AS payer_name,
+                refuel.tank_date::text AS tank_date,
+                refuel.odometer,
+                refuel.amount_cents,
+                refuel.settled_at
+            FROM public.car_refuel AS refuel
+            JOIN public."user" AS person
+                ON person.id = refuel.paid_by
+            WHERE refuel.organization_id = $1
+            ORDER BY refuel.odometer, refuel.id
             `,
             [organizationId],
         );
@@ -138,6 +145,7 @@ export async function loadCarStatistics(
             id: trip.id,
             driverId: trip.driver_id,
             driverName: trip.driver_name,
+            payers: payerMap.get(trip.id),
             tripDate: trip.trip_date,
             startOdometer: trip.start_odometer,
             endOdometer: trip.end_odometer,

@@ -5,10 +5,21 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logServerError } from "@/lib/server-error";
+import type {
+    TripPayer,
+    TripPayerInput,
+} from "@/lib/car-trip-payers";
+import {
+    CarTripPayerError,
+    loadCarTripPayers,
+    replaceCarTripPayers,
+    resolveCarTripPayers,
+} from "@/lib/car-trip-payers-server";
 
 type TripInput = {
     organizationId: string;
-    driverId: string;
+    driverId?: string;
+    payers?: TripPayerInput[];
     tripDate: string;
     endTime: string;
     startOdometer: number;
@@ -94,11 +105,11 @@ async function saveTrip(
     if (
         !input ||
         !validId(input.organizationId) ||
-        !validId(input.driverId)
+        (input.payers === undefined && !validId(input.driverId))
     ) {
         return {
             success: false,
-            error: "Ongeldige auto of bestuurder.",
+            error: "Ongeldige auto of betaler.",
         };
     }
 
@@ -173,11 +184,11 @@ async function saveTrip(
 
         const organization = await client.query(
             `
-        SELECT id
-        FROM public.organization
-        WHERE id = $1
-        FOR UPDATE
-      `,
+            SELECT id
+            FROM public.organization
+            WHERE id = $1
+            FOR UPDATE
+            `,
             [input.organizationId],
         );
 
@@ -190,13 +201,19 @@ async function saveTrip(
         const members = await client.query<{
             userId: string;
             role: string;
+            name: string;
         }>(
             `
-        SELECT "userId", role
-        FROM public.member
-        WHERE "organizationId" = $1
-        FOR SHARE
-      `,
+            SELECT
+                membership."userId",
+                membership.role,
+                person.name
+            FROM public.member AS membership
+            JOIN public."user" AS person
+                ON person.id = membership."userId"
+            WHERE membership."organizationId" = $1
+            FOR SHARE OF membership, person
+            `,
             [input.organizationId],
         );
 
@@ -216,27 +233,28 @@ async function saveTrip(
             .includes("owner");
 
         let original: ExistingTrip | undefined;
+        let previousPayers: TripPayer[] = [];
 
         if (edit) {
             const result = await client.query<ExistingTrip>(
                 `
-          SELECT
-            id,
-            driver_id,
-            created_by,
-            start_odometer,
-            end_odometer,
-            ended_at,
-            to_char(
-              ended_at AT TIME ZONE 'Europe/Brussels',
-              'YYYY-MM-DD HH24:MI'
-            ) AS local_time,
-            updated_at::text AS version
-          FROM public.car_trip
-          WHERE organization_id = $1
-            AND id = $2
-          FOR UPDATE
-        `,
+                SELECT
+                    id,
+                    driver_id,
+                    created_by,
+                    start_odometer,
+                    end_odometer,
+                    ended_at,
+                    to_char(
+                        ended_at AT TIME ZONE 'Europe/Brussels',
+                        'YYYY-MM-DD HH24:MI'
+                    ) AS local_time,
+                    updated_at::text AS version
+                FROM public.car_trip
+                WHERE organization_id = $1
+                    AND id = $2
+                FOR UPDATE
+                `,
                 [input.organizationId, edit.id],
             );
 
@@ -249,13 +267,39 @@ async function saveTrip(
                 );
             }
 
+            const payerMap = await loadCarTripPayers(
+                client,
+                input.organizationId,
+                [original.id],
+            );
+
+            const explicitPayers = payerMap.get(original.id);
+
+            previousPayers = explicitPayers ?? [
+                {
+                    kind: "member",
+                    userId: original.driver_id,
+                    name:
+                        members.rows.find(
+                            (member) =>
+                                member.userId === original!.driver_id,
+                        )?.name ?? "",
+                },
+            ];
+
+            const actorIsPayer = previousPayers.some(
+                (payer) =>
+                    payer.kind === "member" &&
+                    payer.userId === session.user.id,
+            );
+
             if (
                 !isOwner &&
                 original.created_by !== session.user.id &&
-                original.driver_id !== session.user.id
+                !actorIsPayer
             ) {
                 throw new TripValidationError(
-                    "Je kunt alleen ritten bewerken die je zelf invoerde of reed.",
+                    "Je kunt alleen ritten bewerken die je zelf invoerde of waarvoor je mee betaalt.",
                 );
             }
 
@@ -265,19 +309,13 @@ async function saveTrip(
                     true,
                 );
             }
-        }
 
-        const driverIsMember = members.rows.some(
-            (member) => member.userId === input.driverId,
-        );
-
-        if (
-            !driverIsMember &&
-            original?.driver_id !== input.driverId
-        ) {
-            throw new TripValidationError(
-                "De bestuurder is geen lid van deze autogroep.",
-            );
+            if (explicitPayers && input.payers === undefined) {
+                throw new TripValidationError(
+                    "Open de rit opnieuw in het bijgewerkte formulier om de betalers te behouden.",
+                    true,
+                );
+            }
         }
 
         const startpointResult = await client.query<{
@@ -285,13 +323,13 @@ async function saveTrip(
             odometer: number;
         }>(
             `
-        SELECT
-          tank_date::text AS tank_date,
-          odometer
-        FROM public.car_startpoint
-        WHERE organization_id = $1
-        FOR SHARE
-      `,
+            SELECT
+                tank_date::text AS tank_date,
+                odometer
+            FROM public.car_startpoint
+            WHERE organization_id = $1
+            FOR SHARE
+            `,
             [input.organizationId],
         );
 
@@ -318,15 +356,15 @@ async function saveTrip(
             settled_at: Date | null;
         }>(
             `
-        SELECT
-          odometer,
-          tank_date::text AS tank_date,
-          settled_at
-        FROM public.car_refuel
-        WHERE organization_id = $1
-        ORDER BY odometer ASC
-        FOR SHARE
-      `,
+            SELECT
+                odometer,
+                tank_date::text AS tank_date,
+                settled_at
+            FROM public.car_refuel
+            WHERE organization_id = $1
+            ORDER BY odometer ASC
+            FOR SHARE
+            `,
             [input.organizationId],
         );
 
@@ -342,10 +380,7 @@ async function saveTrip(
                 original.start_odometer < refuel.odometer &&
                 original.end_odometer > previousOdometer;
 
-            if (
-                refuel.settled_at &&
-                (newTouches || oldTouches)
-            ) {
+            if (refuel.settled_at && (newTouches || oldTouches)) {
                 throw new TripValidationError(
                     "Deze rit raakt een afgerekende tankperiode. Een eigenaar moet de betrokken periode eerst opnieuw openen.",
                 );
@@ -370,10 +405,7 @@ async function saveTrip(
         let endedAt: Date | null = null;
 
         if (input.endTime === "") {
-            if (
-                !original ||
-                original.ended_at !== null
-            ) {
+            if (!original || original.ended_at !== null) {
                 throw new TripValidationError(
                     "Vul een geldige eindtijd in.",
                 );
@@ -394,33 +426,30 @@ async function saveTrip(
                 not_future: boolean;
             }>(
                 `
-          SELECT
-            stamp AS ended_at,
-            to_char(
-              stamp AT TIME ZONE 'Europe/Brussels',
-              'YYYY-MM-DD HH24:MI'
-            ) AS local_time,
-            stamp <= clock_timestamp() AS not_future
-          FROM (
-            SELECT
-              CASE
-                WHEN $2::timestamptz IS NOT NULL
-                  THEN $2::timestamptz
-                ELSE
-                  $1::timestamp
-                    AT TIME ZONE 'Europe/Brussels'
-              END AS stamp
-          ) AS converted
-        `,
+                SELECT
+                    stamp AS ended_at,
+                    to_char(
+                        stamp AT TIME ZONE 'Europe/Brussels',
+                        'YYYY-MM-DD HH24:MI'
+                    ) AS local_time,
+                    stamp <= clock_timestamp() AS not_future
+                FROM (
+                    SELECT
+                        CASE
+                            WHEN $2::timestamptz IS NOT NULL
+                                THEN $2::timestamptz
+                            ELSE
+                                $1::timestamp
+                                    AT TIME ZONE 'Europe/Brussels'
+                        END AS stamp
+                ) AS converted
+                `,
                 [localDateTime, preserved ?? null],
             );
 
             const time = timeResult.rows[0];
 
-            if (
-                !time ||
-                time.local_time !== localDateTime
-            ) {
+            if (!time || time.local_time !== localDateTime) {
                 throw new TripValidationError(
                     "Deze lokale tijd bestaat niet door de omschakeling naar zomertijd.",
                 );
@@ -437,17 +466,17 @@ async function saveTrip(
 
         const overlap = await client.query(
             `
-        SELECT id
-        FROM public.car_trip
-        WHERE organization_id = $1
-          AND start_odometer < $3
-          AND end_odometer > $2
-          AND (
-            $4::uuid IS NULL
-            OR id <> $4::uuid
-          )
-        LIMIT 1
-      `,
+            SELECT id
+            FROM public.car_trip
+            WHERE organization_id = $1
+                AND start_odometer < $3
+                AND end_odometer > $2
+                AND (
+                    $4::uuid IS NULL
+                    OR id <> $4::uuid
+                )
+            LIMIT 1
+            `,
             [
                 input.organizationId,
                 input.startOdometer,
@@ -464,36 +493,36 @@ async function saveTrip(
 
         const timeConflict = await client.query(
             `
-        SELECT id
-        FROM public.car_trip
-        WHERE organization_id = $1
-          AND (
-            $6::uuid IS NULL
-            OR id <> $6::uuid
-          )
-          AND (
-            (
-              end_odometer <= $2
-              AND CASE
-                WHEN ended_at IS NOT NULL
-                  AND $5::timestamptz IS NOT NULL
-                  THEN ended_at > $5::timestamptz
-                ELSE trip_date > $4::date
-              END
-            )
-            OR
-            (
-              start_odometer >= $3
-              AND CASE
-                WHEN ended_at IS NOT NULL
-                  AND $5::timestamptz IS NOT NULL
-                  THEN ended_at < $5::timestamptz
-                ELSE trip_date < $4::date
-              END
-            )
-          )
-        LIMIT 1
-      `,
+            SELECT id
+            FROM public.car_trip
+            WHERE organization_id = $1
+                AND (
+                    $6::uuid IS NULL
+                    OR id <> $6::uuid
+                )
+                AND (
+                    (
+                        end_odometer <= $2
+                        AND CASE
+                            WHEN ended_at IS NOT NULL
+                                AND $5::timestamptz IS NOT NULL
+                                THEN ended_at > $5::timestamptz
+                            ELSE trip_date > $4::date
+                        END
+                    )
+                    OR
+                    (
+                        start_odometer >= $3
+                        AND CASE
+                            WHEN ended_at IS NOT NULL
+                                AND $5::timestamptz IS NOT NULL
+                                THEN ended_at < $5::timestamptz
+                            ELSE trip_date < $4::date
+                        END
+                    )
+                )
+            LIMIT 1
+            `,
             [
                 input.organizationId,
                 input.startOdometer,
@@ -510,26 +539,61 @@ async function saveTrip(
             );
         }
 
+        const payerInput =
+            input.payers === undefined
+                ? [
+                    {
+                        kind: "member" as const,
+                        userId: input.driverId!,
+                    },
+                ]
+                : input.payers;
+
+        const payers = await resolveCarTripPayers(
+            client,
+            input.organizationId,
+            session.user.id,
+            payerInput,
+            members.rows,
+            previousPayers,
+        );
+
+        // driver_id blijft voorlopig nodig voor bestaande queries.
+        // Bij expliciete betalers bepaalt uitsluitend de betalerslijst
+        // de kostenverdeling. Bij uitsluitend gasten is de invoerder
+        // de technische accountkoppeling.
+        const firstMember = payers.find(
+            (payer) => payer.kind === "member",
+        );
+
+        const legacyDriverId =
+            firstMember?.kind === "member"
+                ? firstMember.userId
+                : session.user.id;
+
+        let savedTripId: string;
+
         if (edit) {
-            const updated = await client.query(
+            const updated = await client.query<{ id: string }>(
                 `
-          UPDATE public.car_trip
-          SET
-            driver_id = $3,
-            trip_date = $4::date,
-            ended_at = $5,
-            start_odometer = $6,
-            end_odometer = $7,
-            description = $8,
-            updated_at = clock_timestamp()
-          WHERE organization_id = $1
-            AND id = $2
-            AND updated_at::text = $9
-        `,
+                UPDATE public.car_trip
+                SET
+                    driver_id = $3,
+                    trip_date = $4::date,
+                    ended_at = $5,
+                    start_odometer = $6,
+                    end_odometer = $7,
+                    description = $8,
+                    updated_at = clock_timestamp()
+                WHERE organization_id = $1
+                    AND id = $2
+                    AND updated_at::text = $9
+                RETURNING id
+                `,
                 [
                     input.organizationId,
                     edit.id,
-                    input.driverId,
+                    legacyDriverId,
                     input.tripDate,
                     endedAt,
                     input.startOdometer,
@@ -545,27 +609,30 @@ async function saveTrip(
                     true,
                 );
             }
+
+            savedTripId = updated.rows[0].id;
         } else {
-            await client.query(
+            const created = await client.query<{ id: string }>(
                 `
-          INSERT INTO public.car_trip (
-            organization_id,
-            driver_id,
-            trip_date,
-            ended_at,
-            start_odometer,
-            end_odometer,
-            description,
-            created_by
-          )
-          VALUES (
-            $1, $2, $3::date, $4,
-            $5, $6, $7, $8
-          )
-        `,
+                INSERT INTO public.car_trip (
+                    organization_id,
+                    driver_id,
+                    trip_date,
+                    ended_at,
+                    start_odometer,
+                    end_odometer,
+                    description,
+                    created_by
+                )
+                VALUES (
+                    $1, $2, $3::date, $4,
+                    $5, $6, $7, $8
+                )
+                RETURNING id
+                `,
                 [
                     input.organizationId,
-                    input.driverId,
+                    legacyDriverId,
                     input.tripDate,
                     endedAt,
                     input.startOdometer,
@@ -574,12 +641,29 @@ async function saveTrip(
                     session.user.id,
                 ],
             );
+
+            if (created.rowCount !== 1) {
+                throw new Error("De rit kon niet worden aangemaakt.");
+            }
+
+            savedTripId = created.rows[0].id;
         }
+
+        await replaceCarTripPayers(
+            client,
+            input.organizationId,
+            savedTripId,
+            payers,
+        );
 
         await client.query("COMMIT");
         transactionOpen = false;
     } catch (error) {
-        if (!(error instanceof TripValidationError)) {
+        const validationError =
+            error instanceof TripValidationError ||
+            error instanceof CarTripPayerError;
+
+        if (!validationError) {
             logServerError(
                 edit ? "updateCarTrip" : "createCarTrip",
                 error,
@@ -600,7 +684,8 @@ async function saveTrip(
         return {
             success: false,
             error:
-                error instanceof TripValidationError
+                error instanceof TripValidationError ||
+                    error instanceof CarTripPayerError
                     ? error.message
                     : "De rit kon niet worden opgeslagen. Probeer opnieuw.",
             refreshRequired:
@@ -612,6 +697,7 @@ async function saveTrip(
     }
 
     revalidatePath(`/auto/${input.organizationId}`);
+    revalidatePath(`/auto/${input.organizationId}/statistieken`);
 
     return { success: true };
 }

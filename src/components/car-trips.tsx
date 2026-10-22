@@ -11,8 +11,15 @@ import { useRouter } from "next/navigation";
 import { createCarTrip, updateCarTrip } from "@/actions/car-trips";
 import { deleteCarTrip } from "@/actions/delete-car-trip";
 import type { TripHistoryItem } from "@/lib/car-history-types";
+import {
+  formatTripPayers,
+  getTripPayers,
+  validateTripPayerInputs,
+  type TripPayerInput,
+} from "@/lib/car-trip-payers";
 import ActionButton from "./action-button";
 import CarTripHistory from "./car-trip-history";
+import CarTripPayers from "./car-trip-payers";
 import styles from "./car-trips.module.css";
 
 type Driver = {
@@ -103,7 +110,12 @@ export default function CarTrips({
     null,
   );
 
-  const [driverId, setDriverId] = useState(currentUserId);
+  const [payers, setPayers] = useState<TripPayerInput[]>([
+    {
+      kind: "member",
+      userId: currentUserId,
+    },
+  ]);
   const [tripDate, setTripDate] = useState(today);
   const [endTime, setEndTime] = useState("");
   const [dateLimit, setDateLimit] = useState(today);
@@ -163,17 +175,13 @@ export default function CarTrips({
 
   const referenceTrip = editingTrip ?? latestTrip;
 
-  const formerDriver =
-    editingTrip &&
-    !drivers.some((driver) => driver.userId === editingTrip.driverId)
-      ? editingTrip
-      : null;
-
   function canEdit(trip: TripHistoryItem) {
     return (
       isOwner ||
       trip.createdBy === currentUserId ||
-      trip.driverId === currentUserId
+      getTripPayers(trip).some(
+        (payer) => payer.kind === "member" && payer.userId === currentUserId,
+      )
     );
   }
 
@@ -187,7 +195,12 @@ export default function CarTrips({
     const current = brusselsMoment();
 
     setEditingTrip(null);
-    setDriverId(currentUserId);
+    setPayers([
+      {
+        kind: "member",
+        userId: currentUserId,
+      },
+    ]);
     setTripDate(current.date);
     setEndTime(current.time);
     setDateLimit(current.date);
@@ -205,7 +218,21 @@ export default function CarTrips({
     }
 
     setEditingTrip(trip);
-    setDriverId(trip.driverId);
+    setPayers(
+      getTripPayers(trip).map(
+        (payer): TripPayerInput =>
+          payer.kind === "member"
+            ? {
+                kind: "member",
+                userId: payer.userId,
+              }
+            : {
+                kind: "guest",
+                guestId: payer.guestId,
+                name: payer.name,
+              },
+      ),
+    );
     setTripDate(trip.tripDate);
     setEndTime(trip.endedAt ? brusselsMoment(new Date(trip.endedAt)).time : "");
     setDateLimit(brusselsMoment().date);
@@ -280,12 +307,19 @@ export default function CarTrips({
       return;
     }
 
+    const validation = validateTripPayerInputs(payers);
+
+    if (!validation.success) {
+      setError(validation.error);
+      return;
+    }
+
     setSaving(true);
 
     try {
       const input = {
         organizationId,
-        driverId,
+        payers: validation.payers,
         tripDate,
         endTime,
         startOdometer: Number(start),
@@ -353,7 +387,7 @@ export default function CarTrips({
             <h3>Deze rit definitief verwijderen?</h3>
 
             <p className={styles.description}>
-              <strong>{deletingTrip.driverName}</strong>
+              <strong>{formatTripPayers(deletingTrip)}</strong>
               {" · "}
               {formatTripMoment(deletingTrip)}
               <br />
@@ -421,7 +455,7 @@ export default function CarTrips({
               {referenceTrip ? (
                 <>
                   <p className={styles.contextName}>
-                    {referenceTrip.driverName}
+                    {formatTripPayers(referenceTrip)}
                     <span>
                       {" · "}
                       {formatTripMoment(referenceTrip)}
@@ -457,31 +491,6 @@ export default function CarTrips({
                   </ActionButton>
                 </div>
               )}
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="trip-driver">Bestuurder</label>
-
-              <select
-                id="trip-driver"
-                value={driverId}
-                onChange={(event) => setDriverId(event.target.value)}
-                required
-              >
-                {formerDriver && (
-                  <option value={formerDriver.driverId}>
-                    {formerDriver.driverName}
-                    {" · geen groepslid meer"}
-                  </option>
-                )}
-
-                {drivers.map((driver) => (
-                  <option key={driver.userId} value={driver.userId}>
-                    {driver.name}
-                    {driver.userId === currentUserId ? " · jij" : ""}
-                  </option>
-                ))}
-              </select>
             </div>
 
             <div className={styles.field}>
@@ -575,6 +584,16 @@ export default function CarTrips({
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 maxLength={500}
+              />
+            </div>
+
+            <div className={styles.wideField}>
+              <CarTripPayers
+                members={drivers}
+                currentUserId={currentUserId}
+                previousPayers={editingTrip ? getTripPayers(editingTrip) : []}
+                value={payers}
+                onChange={setPayers}
               />
             </div>
 

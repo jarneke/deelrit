@@ -3,6 +3,10 @@ import {
     type SettlementRefuel,
     type SettlementTrip,
 } from "@/lib/car-settlement";
+import {
+    allocateCostCents,
+    getWeightedTripPayers,
+} from "@/lib/car-trip-payers";
 
 export type StatisticsTrip = SettlementTrip & {
     id: string;
@@ -49,6 +53,11 @@ export type StatisticsData = {
     people: StatisticsPerson[];
     days: StatisticsDay[];
     tanks: StatisticsTank[];
+    tripCounts: {
+        date: string;
+        userIds: string[];
+        distance: number;
+    }[];
 };
 
 export type StatisticsSource = {
@@ -78,12 +87,16 @@ export function calculateCarStatistics(
     }
 
     for (const trip of source.trips) {
-        if (!people.has(trip.driverId)) {
-            people.set(trip.driverId, {
-                userId: trip.driverId,
-                name: trip.driverName,
-                formerMember: true,
-            });
+        for (const payer of getWeightedTripPayers(trip, 0)) {
+            if (!people.has(payer.payerId)) {
+                people.set(payer.payerId, {
+                    userId: payer.payerId,
+                    name: payer.isGuest
+                        ? `${payer.name} (gast)`
+                        : payer.name,
+                    formerMember: !payer.isGuest,
+                });
+            }
         }
     }
 
@@ -97,6 +110,8 @@ export function calculateCarStatistics(
         }
     }
 
+    // Afstandsvelden worden intern in zestigsten van een kilometer
+    // opgebouwd. Pas bij het teruggeven worden ze naar km omgezet.
     const days = new Map<string, StatisticsDay>();
 
     function day(date: string, userId: string): StatisticsDay {
@@ -127,21 +142,26 @@ export function calculateCarStatistics(
     }
 
     for (const trip of source.trips) {
-        const row = day(trip.tripDate, trip.driverId);
         const distance = trip.endOdometer - trip.startOdometer;
 
-        row.distance += distance;
-        row.trips += 1;
+        for (const payer of getWeightedTripPayers(trip, distance)) {
+            const row = day(trip.tripDate, payer.payerId);
 
-        if (distance < 10) {
-            row.shortTrips += 1;
-            row.shortKm += distance;
-        } else if (distance <= 50) {
-            row.mediumTrips += 1;
-            row.mediumKm += distance;
-        } else {
-            row.longTrips += 1;
-            row.longKm += distance;
+            row.distance += payer.distanceUnits;
+            row.trips += 1;
+
+            // De categorie volgt de volledige ritlengte.
+            // Het kilometeraandeel volgt de verdeling van de rit.
+            if (distance < 10) {
+                row.shortTrips += 1;
+                row.shortKm += payer.distanceUnits;
+            } else if (distance <= 50) {
+                row.mediumTrips += 1;
+                row.mediumKm += payer.distanceUnits;
+            } else {
+                row.longTrips += 1;
+                row.longKm += payer.distanceUnits;
+            }
         }
     }
 
@@ -170,78 +190,71 @@ export function calculateCarStatistics(
                 Math.max(trip.startOdometer, period.startOdometer),
             );
 
-            return distance > 0 ? [{ trip, distance }] : [];
+            return distance > 0
+                ? getWeightedTripPayers(trip, distance).map((payer) => ({
+                    trip,
+                    payerId: payer.payerId,
+                    distanceUnits: payer.distanceUnits,
+                }))
+                : [];
         });
 
         if (period.status !== "complete") {
             for (const piece of pieces) {
                 day(
                     piece.trip.tripDate,
-                    piece.trip.driverId,
-                ).blockedKm += piece.distance;
+                    piece.payerId,
+                ).blockedKm += piece.distanceUnits;
             }
 
             continue;
         }
 
-        // Verdeel het bestaande aandeel van iedere bestuurder over diens
-        // ritten. Zo blijven alle centen gelijk aan de afrekenberekening.
+        // Verdeel ieders bestaande afrekenaandeel over diens ritten.
+        // De statistieken behouden zo exact dezelfde centen.
         for (const share of period.shares) {
             const ownPieces = pieces.filter(
-                (piece) => piece.trip.driverId === share.userId,
+                (piece) => piece.payerId === share.userId,
+            );
+
+            const totalUnits = ownPieces.reduce(
+                (sum, piece) => sum + piece.distanceUnits,
+                0,
             );
 
             if (
-                ownPieces.reduce(
-                    (sum, piece) => sum + piece.distance,
-                    0,
-                ) !== share.distance
+                totalUnits <= 0 ||
+                totalUnits / 60 !== share.distance
             ) {
                 throw new Error("De statistiekverdeling is inconsistent.");
             }
 
-            const denominator = BigInt(share.distance);
-
-            const allocations = ownPieces.map((piece) => {
-                const numerator =
-                    BigInt(share.amountCents) * BigInt(piece.distance);
-
-                return {
-                    ...piece,
-                    cents: Number(numerator / denominator),
-                    remainder: numerator % denominator,
-                };
-            });
-
-            allocations.sort((a, b) => {
-                if (a.remainder !== b.remainder) {
-                    return a.remainder > b.remainder ? -1 : 1;
-                }
-
-                return a.trip.id < b.trip.id
-                    ? -1
-                    : a.trip.id > b.trip.id
-                        ? 1
-                        : 0;
-            });
-
-            const remaining = share.amountCents - allocations.reduce(
-                (sum, allocation) => sum + allocation.cents,
-                0,
+            const allocations = allocateCostCents(
+                share.amountCents,
+                ownPieces.map((piece) => ({
+                    id: piece.trip.id,
+                    weight: piece.distanceUnits,
+                })),
             );
 
-            for (let index = 0; index < remaining; index += 1) {
-                allocations[index].cents += 1;
-            }
+            const pieceMap = new Map(
+                ownPieces.map((piece) => [piece.trip.id, piece]),
+            );
 
             for (const allocation of allocations) {
+                const piece = pieceMap.get(allocation.id);
+
+                if (!piece) {
+                    throw new Error("Een statistiekrit ontbreekt.");
+                }
+
                 const row = day(
-                    allocation.trip.tripDate,
+                    piece.trip.tripDate,
                     share.userId,
                 );
 
-                row.pricedKm += allocation.distance;
-                row.costCents += allocation.cents;
+                row.pricedKm += piece.distanceUnits;
+                row.costCents += allocation.amountCents;
             }
         }
     }
@@ -251,20 +264,44 @@ export function calculateCarStatistics(
     return {
         today: source.today,
         startDate: source.startpoint?.tankDate ?? null,
-        people: [...people.values()].sort((a, b) =>
-            a.name.localeCompare(b.name, "nl-BE") ||
-            a.userId.localeCompare(b.userId),
+        people: [...people.values()].sort(
+            (a, b) =>
+                a.name.localeCompare(b.name, "nl-BE") ||
+                a.userId.localeCompare(b.userId),
         ),
         days: [...days.values()]
+            .map((row) => ({
+                ...row,
+                distance: row.distance / 60,
+                pricedKm: row.pricedKm / 60,
+                blockedKm: row.blockedKm / 60,
+                shortKm: row.shortKm / 60,
+                mediumKm: row.mediumKm / 60,
+                longKm: row.longKm / 60,
+            }))
             .filter(
                 (row) =>
                     row.date >= earliest &&
                     row.date <= source.today,
             )
-            .sort((a, b) =>
-                a.date.localeCompare(b.date) ||
-                a.userId.localeCompare(b.userId),
+            .sort(
+                (a, b) =>
+                    a.date.localeCompare(b.date) ||
+                    a.userId.localeCompare(b.userId),
             ),
+        tripCounts: source.trips
+            .filter(
+                (trip) =>
+                    trip.tripDate >= earliest &&
+                    trip.tripDate <= source.today,
+            )
+            .map((trip) => ({
+                date: trip.tripDate,
+                userIds: getWeightedTripPayers(trip, 0).map(
+                    (payer) => payer.payerId,
+                ),
+                distance: trip.endOdometer - trip.startOdometer,
+            })),
         tanks: periods
             .filter(
                 (period) =>

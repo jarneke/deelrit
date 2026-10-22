@@ -242,12 +242,20 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
     (row) => row.date >= previousFrom && row.date < from && matchesDriver(row),
   );
 
+  const periodTrips = data.tripCounts.filter(
+    (trip) => trip.date >= from && trip.date <= data.today,
+  );
+
+  const selectedTrips = periodTrips.filter(
+    (trip) => !driver || trip.userIds.includes(driver),
+  );
+
   const distance = sum(rows, "distance");
   const pricedKm = sum(rows, "pricedKm");
   const blockedKm = sum(rows, "blockedKm");
   const pendingKm = Math.max(0, distance - pricedKm - blockedKm);
   const cost = sum(rows, "costCents");
-  const trips = sum(rows, "trips");
+  const trips = selectedTrips.length;
   const rate = pricedKm > 0 ? cost / pricedKm : null;
   const previousKm = sum(previous, "distance");
 
@@ -421,7 +429,7 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
         </label>
 
         <label htmlFor={id + "-driver"}>
-          Bestuurder
+          Persoon
           <select
             id={id + "-driver"}
             value={driver}
@@ -454,7 +462,11 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
       )}
 
       <div className={styles.metrics} aria-live="polite">
-        <Card label="Gereden afstand" value={km(distance)} note={comparison} />
+        <Card
+          label={driver ? "Kilometeraandeel" : "Gereden afstand"}
+          value={km(distance)}
+          note={comparison}
+        />
 
         <Card
           label="Gemiddelde brandstofkost"
@@ -469,9 +481,12 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
         />
 
         <Card
-          label="Gemiddelde rit"
+          label={driver ? "Gemiddeld km-aandeel per rit" : "Gemiddelde rit"}
           value={trips ? km(distance / trips) : "—"}
-          note={trips + " geregistreerde ritten"}
+          note={
+            trips +
+            (driver ? " ritten voor deze persoon" : " geregistreerde ritten")
+          }
         />
       </div>
 
@@ -512,7 +527,7 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
             rows={chartRows}
             people={data.people}
             format={valueFormat}
-            label="Gebruik per bestuurder"
+            label="Aandelen per persoon"
             onSelect={setSelected}
           />
 
@@ -531,8 +546,8 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
         </Panel>
 
         <Panel
-          title="Wie rijdt hoeveel?"
-          note="Gekozen periode · alle bestuurders"
+          title="Wie draagt welk aandeel?"
+          note="Gekozen periode · alle personen · gedeelde kilometers worden gelijk verdeeld"
         >
           <Bars
             rows={data.people.map((person, index) => ({
@@ -548,14 +563,16 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
               ),
             }))}
             format={km}
-            label="Afstand per bestuurder"
+            label="Kilometeraandeel per persoon"
           />
 
           <hr className={styles.rule} />
 
           <h3>Hoe volledig zijn de kosten?</h3>
 
-          <p className={styles.small}>Voor de geselecteerde bestuurder(s).</p>
+          <p className={styles.small}>
+            Voor de geselecteerde persoon of personen.
+          </p>
 
           <p>
             {distance ? numbers.format((pricedKm / distance) * 100) + "%" : "—"}{" "}
@@ -578,9 +595,9 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
 
         <p className={styles.small}>
           Schat de kost van een rit en bekijk je verwachte maandkost bij
-          hetzelfde rijpatroon. Beide gebruiken de gemiddelde brandstofkost per
-          kilometer van de geselecteerde periode en bestuurder. Dit is geen
-          afrekening.
+          hetzelfde gebruik. Beide gebruiken de gemiddelde brandstofkost per
+          kilometer van de geselecteerde periode en persoon. Bij gedeelde ritten
+          volgt de maandkost het eigen aandeel. Dit is geen afrekening.
         </p>
 
         <div className={styles.estimators}>
@@ -599,13 +616,14 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
               {estimate(estimateKm)}
             </strong>
             <span className={styles.small}>
-              Geschatte brandstofkost voor deze rit.
+              Geschatte totale brandstofkost voor deze rit, vóór een eventuele
+              verdeling.
             </span>
           </label>
 
           <div aria-live="polite">
             <span className={styles.muted}>
-              Maandkost bij je huidige rijpatroon
+              Maandkost bij je huidige gebruik
             </span>
 
             {!canEstimateMonth || monthlyKm === null || rate === null ? (
@@ -617,8 +635,9 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
                 </strong>
 
                 <p className={styles.small}>
-                  Ongeveer {km(monthlyKm)} per 30 dagen, als je blijft rijden
-                  zoals in deze periode.
+                  Ongeveer {km(monthlyKm)}{" "}
+                  {driver ? "kilometeraandeel" : "autogebruik"} per 30 dagen,
+                  bij hetzelfde gebruik als in deze periode.
                 </p>
 
                 <p className={styles.small}>
@@ -641,25 +660,22 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
         {rate === null && (
           <p className={styles.warning}>
             Er zijn nog geen kilometers met bekende brandstofkosten in de
-            geselecteerde periode voor deze bestuurder(s). Zodra die beschikbaar
-            zijn, verschijnen hier de geschatte bedragen.
+            geselecteerde periode voor deze persoon of personen. Zodra die
+            beschikbaar zijn, verschijnen hier de geschatte bedragen.
           </p>
         )}
       </section>
 
-      <Panel
-        title="Bestuurders vergeleken"
-        note="Gekozen periode · alle bestuurders"
-      >
+      <Panel title="Personen vergeleken" note="Gekozen periode · alle personen">
         <div className={styles.tableWrap}>
           <table>
             <thead>
               <tr>
-                <th>Bestuurder</th>
-                <th>Afstand</th>
+                <th>Persoon</th>
+                <th>Km-aandeel</th>
                 <th>Aandeel</th>
                 <th>Ritten</th>
-                <th>Gem. rit</th>
+                <th>Gem. km-aandeel</th>
                 <th>Kostenaandeel</th>
                 <th>€/km</th>
                 <th>Betaald aan pomp</th>
@@ -672,7 +688,9 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
                   (row) => row.userId === person.userId,
                 );
                 const personKm = sum(personRows, "distance");
-                const count = sum(personRows, "trips");
+                const count = periodTrips.filter((trip) =>
+                  trip.userIds.includes(person.userId),
+                ).length;
                 const totalKm = sum(all, "distance");
 
                 return (
@@ -708,6 +726,12 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
         </div>
 
         <p className={styles.small}>
+          Gedeelde kilometers en kosten zijn gelijk verdeeld. Een gedeelde rit
+          telt bij iedere deelnemer mee, maar in het totaal slechts één keer.
+          Gemiddeld km-aandeel is het toegerekende kilometeraandeel per rit.
+        </p>
+
+        <p className={styles.small}>
           Kostenaandeel volgt de ritdatum; betaald aan de pomp volgt de
           tankdatum. Het verschil is geen openstaand saldo. Dat staat bij de
           afrekening.
@@ -715,36 +739,36 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
       </Panel>
 
       <details className={styles.more}>
-        <summary>Meer inzichten · trends, rijpatronen en tankperiodes</summary>
+        <summary>Meer inzichten · trends, gebruik en tankperiodes</summary>
 
         <div className={styles.moreContent}>
           <Panel
             title="Maandtrends"
-            note="Afgelopen 12 kalendermaanden · huidige maand is nog bezig · dezelfde bestuurder en grafiekweergave"
+            note="Afgelopen 12 kalendermaanden · huidige maand is nog bezig · dezelfde persoon en grafiekweergave"
           >
             <Bars
               rows={months}
               people={data.people}
               format={valueFormat}
-              label="Maandtrends per bestuurder"
+              label="Maandtrends per persoon"
             />
           </Panel>
 
           <div className={styles.twoColumns}>
             <Panel
-              title="Op welke dagen rij je?"
-              note="Gemiddelde kilometers per voorkomen van die weekdag in de gekozen periode"
+              title="Op welke dagen gebruik je de auto?"
+              note="Gemiddeld kilometeraandeel per voorkomen van die weekdag in de gekozen periode"
             >
               <Bars
                 rows={dayRows}
                 format={km}
-                label="Gemiddelde afstand per weekdag"
+                label="Gemiddeld kilometeraandeel per weekdag"
               />
             </Panel>
 
             <Panel
               title="Werkweek of weekend?"
-              note="Kilometers binnen de gekozen periode; dit zegt niets over het doel van een rit"
+              note="Kilometeraandeel binnen de gekozen periode; dit zegt niets over het doel van een rit"
             >
               <Bars
                 rows={[false, true].map((weekend) => ({
@@ -770,27 +794,35 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
                   {
                     key: "short",
                     label: "Onder 10 km",
-                    values: [sum(rows, "shortTrips")],
+                    values: [
+                      selectedTrips.filter((trip) => trip.distance < 10).length,
+                    ],
                   },
                   {
                     key: "medium",
                     label: "10–50 km",
-                    values: [sum(rows, "mediumTrips")],
+                    values: [
+                      selectedTrips.filter(
+                        (trip) => trip.distance >= 10 && trip.distance <= 50,
+                      ).length,
+                    ],
                   },
                   {
                     key: "long",
                     label: "Boven 50 km",
-                    values: [sum(rows, "longTrips")],
+                    values: [
+                      selectedTrips.filter((trip) => trip.distance > 50).length,
+                    ],
                   },
                 ]}
                 format={(value) => numbers.format(value) + " ritten"}
-                label="Verdeling naar ritlengte"
+                label="Verdeling naar volledige ritlengte"
               />
 
               <p className={styles.small}>
-                Afstanden: {km(sum(rows, "shortKm"))} kort ·{" "}
-                {km(sum(rows, "mediumKm"))} middellang ·{" "}
-                {km(sum(rows, "longKm"))} lang.
+                De categorie volgt de volledige ritlengte. Kilometeraandelen:{" "}
+                {km(sum(rows, "shortKm"))} kort · {km(sum(rows, "mediumKm"))}{" "}
+                middellang · {km(sum(rows, "longKm"))} lang.
               </p>
             </Panel>
           </div>
@@ -907,8 +939,9 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
           : "het nog in te stellen startpunt"}
         . Vandaag is nog niet volledig. Kosten omvatten open én afgerekende
         volledige tankperiodes. Een rit wordt op zijn geregistreerde ritdatum
-        geteld. Verschillen in €/km bewijzen geen verschil in rijzuinigheid.
-        Alle bedragen betreffen uitsluitend brandstof.
+        geteld. Bij gedeelde ritten worden kilometers en kosten gelijk verdeeld.
+        Verschillen in €/km bewijzen geen verschil in rijzuinigheid. Alle
+        bedragen betreffen uitsluitend brandstof.
       </footer>
     </>
   );

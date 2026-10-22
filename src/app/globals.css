@@ -45,7 +45,8 @@ textarea {
 }
 
 :root details > summary::after {
-  content: "";
+  /* Componentstijlen mogen geen extra pijlteken toevoegen. */
+  content: "" !important;
   position: absolute;
   inset-inline-end: 10px;
   top: 50%;
@@ -64,7 +65,7 @@ textarea {
 }
 
 :root details[open] > summary::after {
-  content: "";
+  content: "" !important;
   transform: translateY(-20%) rotate(225deg);
 }
 

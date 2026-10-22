@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { logServerError } from "@/lib/server-error";
 import { calculateCarSettlement } from "@/lib/car-settlement";
 import { getCarSettlementSnapshot } from "@/lib/car-settlement-snapshot";
+import { loadCarTripPayers } from "@/lib/car-trip-payers-server";
 import type { SettlementOverview } from "@/lib/car-settlement-view-types";
 
 type StartpointRow = {
@@ -61,12 +62,12 @@ export async function loadCarOverview(
 
         const membership = await client.query(
             `
-        SELECT id
-        FROM public.member
-        WHERE "organizationId" = $1
-          AND "userId" = $2
-        LIMIT 1
-      `,
+            SELECT id
+            FROM public.member
+            WHERE "organizationId" = $1
+                AND "userId" = $2
+            LIMIT 1
+            `,
             [organizationId, userId],
         );
 
@@ -78,10 +79,10 @@ export async function loadCarOverview(
 
         const startpointResult = await client.query<StartpointRow>(
             `
-        SELECT tank_date::text AS tank_date, odometer
-        FROM public.car_startpoint
-        WHERE organization_id = $1
-      `,
+            SELECT tank_date::text AS tank_date, odometer
+            FROM public.car_startpoint
+            WHERE organization_id = $1
+            `,
             [organizationId],
         );
 
@@ -96,33 +97,40 @@ export async function loadCarOverview(
 
         const tripResult = await client.query<TripRow>(
             `
-        SELECT
-          trip.id,
-          trip.driver_id,
-          driver.name AS driver_name,
-          trip.created_by,
-          trip.updated_at::text AS version,
-          trip.trip_date::text AS trip_date,
-          trip.ended_at,
-          trip.start_odometer,
-          trip.end_odometer,
-          trip.description
-        FROM public.car_trip AS trip
-        JOIN public."user" AS driver
-          ON driver.id = trip.driver_id
-        WHERE trip.organization_id = $1
-        ORDER BY
-          trip.start_odometer ASC,
-          trip.end_odometer ASC,
-          trip.id ASC
-      `,
+            SELECT
+                trip.id,
+                trip.driver_id,
+                driver.name AS driver_name,
+                trip.created_by,
+                trip.updated_at::text AS version,
+                trip.trip_date::text AS trip_date,
+                trip.ended_at,
+                trip.start_odometer,
+                trip.end_odometer,
+                trip.description
+            FROM public.car_trip AS trip
+            JOIN public."user" AS driver
+                ON driver.id = trip.driver_id
+            WHERE trip.organization_id = $1
+            ORDER BY
+                trip.start_odometer ASC,
+                trip.end_odometer ASC,
+                trip.id ASC
+            `,
             [organizationId],
+        );
+
+        const payerMap = await loadCarTripPayers(
+            client,
+            organizationId,
+            tripResult.rows.map((trip) => trip.id),
         );
 
         const trips = tripResult.rows.map((trip) => ({
             id: trip.id,
             driverId: trip.driver_id,
             driverName: trip.driver_name,
+            payers: payerMap.get(trip.id),
             createdBy: trip.created_by,
             version: trip.version,
             tripDate: trip.trip_date,
@@ -134,22 +142,22 @@ export async function loadCarOverview(
 
         const refuelResult = await client.query<RefuelRow>(
             `
-        SELECT
-          refuel.id,
-          refuel.paid_by,
-          payer.name AS payer_name,
-          refuel.created_by,
-          refuel.updated_at::text AS version,
-          refuel.tank_date::text AS tank_date,
-          refuel.odometer,
-          refuel.amount_cents,
-          refuel.settled_at
-        FROM public.car_refuel AS refuel
-        JOIN public."user" AS payer
-          ON payer.id = refuel.paid_by
-        WHERE refuel.organization_id = $1
-        ORDER BY refuel.odometer ASC
-      `,
+            SELECT
+                refuel.id,
+                refuel.paid_by,
+                payer.name AS payer_name,
+                refuel.created_by,
+                refuel.updated_at::text AS version,
+                refuel.tank_date::text AS tank_date,
+                refuel.odometer,
+                refuel.amount_cents,
+                refuel.settled_at
+            FROM public.car_refuel AS refuel
+            JOIN public."user" AS payer
+                ON payer.id = refuel.paid_by
+            WHERE refuel.organization_id = $1
+            ORDER BY refuel.odometer ASC
+            `,
             [organizationId],
         );
 

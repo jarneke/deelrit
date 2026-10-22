@@ -1,3 +1,5 @@
+import type { TripPayer } from "@/lib/car-trip-payers";
+
 export type HistoryStartpoint = {
     tankDate: string;
     odometer: number;
@@ -7,6 +9,7 @@ export type TripHistoryItem = {
     id: string;
     driverId: string;
     driverName: string;
+    payers?: TripPayer[];
     createdBy: string;
     version: string;
     tripDate: string;
