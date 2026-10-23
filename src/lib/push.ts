@@ -117,6 +117,100 @@ export function pushStatusCode(error: unknown): number | undefined {
     return undefined;
 }
 
+function safePushReason(error: unknown): string {
+    const message = error instanceof Error ? error.message : "";
+
+    const knownMessages: Array<[string, string]> = [
+        ["Pushconfiguratie ontbreekt.", "CONFIG_MISSING"],
+        ["Ongeldige pushbestemming.", "ENDPOINT_INVALID"],
+        ["No subject set", "SUBJECT_MISSING"],
+        ["The subject value", "SUBJECT_INVALID"],
+        ["Vapid subject is not", "SUBJECT_INVALID"],
+        ["No key set vapidDetails.publicKey", "PUBLIC_KEY_MISSING"],
+        ["Vapid public key", "PUBLIC_KEY_INVALID"],
+        ["No key set in vapidDetails.privateKey", "PRIVATE_KEY_MISSING"],
+        ["Vapid private key", "PRIVATE_KEY_INVALID"],
+        ["Public key is not valid", "SUBSCRIPTION_KEY_INVALID"],
+    ];
+
+    for (const [prefix, reason] of knownMessages) {
+        if (message.startsWith(prefix)) {
+            return reason;
+        }
+    }
+
+    if (
+        error &&
+        typeof error === "object" &&
+        "body" in error &&
+        typeof error.body === "string"
+    ) {
+        try {
+            const body: unknown = JSON.parse(error.body);
+
+            if (body && typeof body === "object" && "reason" in body) {
+                const allowedReasons = new Set([
+                    "BadJwtToken",
+                    "VapidPkHashMismatch",
+                    "BadTtl",
+                    "BadUrgency",
+                    "BadTopic",
+                    "BadDeviceToken",
+                    "DeviceTokenNotForTopic",
+                    "ExpiredToken",
+                    "InvalidProviderToken",
+                    "ExpiredProviderToken",
+                    "MissingProviderToken",
+                    "Unauthorized",
+                    "Forbidden",
+                    "Unregistered",
+                    "TooManyRequests",
+                    "InternalServerError",
+                    "ServiceUnavailable",
+                    "Shutdown",
+                ]);
+
+                if (
+                    typeof body.reason === "string" &&
+                    allowedReasons.has(body.reason)
+                ) {
+                    return body.reason;
+                }
+            }
+        } catch {
+            return "UNCLASSIFIED";
+        }
+    }
+
+    return "UNCLASSIFIED";
+}
+
+function safeNetworkCode(error: unknown): string | undefined {
+    if (
+        !error ||
+        typeof error !== "object" ||
+        !("code" in error) ||
+        typeof error.code !== "string"
+    ) {
+        return undefined;
+    }
+
+    const allowed = new Set([
+        "ECONNREFUSED",
+        "ECONNRESET",
+        "ETIMEDOUT",
+        "ENOTFOUND",
+        "EAI_AGAIN",
+        "EHOSTUNREACH",
+        "EPIPE",
+        "CERT_HAS_EXPIRED",
+        "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+        "ERR_TLS_CERT_ALTNAME_INVALID",
+    ]);
+
+    return allowed.has(error.code) ? error.code : undefined;
+}
+
 export async function deliverPush(
     subscription: PushRegistration,
     message: {
@@ -126,30 +220,40 @@ export async function deliverPush(
         tag: string;
     },
 ): Promise<void> {
-    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-    const privateKey = process.env.VAPID_PRIVATE_KEY;
-    const subject = process.env.VAPID_SUBJECT;
+    try {
+        const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+        const privateKey = process.env.VAPID_PRIVATE_KEY;
+        const subject = process.env.VAPID_SUBJECT;
 
-    if (!publicKey || !privateKey || !subject) {
-        throw new Error("Pushconfiguratie ontbreekt.");
-    }
+        if (!publicKey || !privateKey || !subject) {
+            throw new Error("Pushconfiguratie ontbreekt.");
+        }
 
-    if (!validPushEndpoint(subscription.endpoint)) {
-        throw new Error("Ongeldige pushbestemming.");
-    }
+        if (!validPushEndpoint(subscription.endpoint)) {
+            throw new Error("Ongeldige pushbestemming.");
+        }
 
-    await webpush.sendNotification(
-        subscription,
-        JSON.stringify(message),
-        {
-            TTL: 60,
-            urgency: "high",
-            timeout: 10_000,
-            vapidDetails: {
-                subject,
-                publicKey,
-                privateKey,
+        await webpush.sendNotification(
+            subscription,
+            JSON.stringify(message),
+            {
+                TTL: 60,
+                urgency: "high",
+                timeout: 10_000,
+                vapidDetails: {
+                    subject,
+                    publicKey,
+                    privateKey,
+                },
             },
-        },
-    );
+        );
+    } catch (error) {
+        console.error("[Deelrit] Pushverzending mislukt", {
+            statusCode: pushStatusCode(error) ?? null,
+            reason: safePushReason(error),
+            networkCode: safeNetworkCode(error) ?? null,
+        });
+
+        throw error;
+    }
 }
