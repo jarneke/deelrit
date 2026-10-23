@@ -219,6 +219,7 @@ export async function deliverPush(
         url: string;
         tag: string;
     },
+    options: { ttlSeconds?: number } = {},
 ): Promise<void> {
     try {
         const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -237,7 +238,7 @@ export async function deliverPush(
             subscription,
             JSON.stringify(message),
             {
-                TTL: 60,
+                TTL: options.ttlSeconds ?? 60,
                 urgency: "high",
                 timeout: 10_000,
                 vapidDetails: {
