@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/session";
 import LogoutButton from "@/components/logout-button";
 import LoadingState from "@/components/loading-state";
 import PushNotifications from "@/components/push-notifications";
+import ThemeSettings from "@/components/theme-settings";
 import styles from "./page.module.css";
 
 export default function AccountPage() {
@@ -52,6 +53,8 @@ async function Account() {
             <p>{session.user.email}</p>
           </div>
         </section>
+
+        <ThemeSettings />
 
         <section className={styles.details}>
           <h2>Accountgegevens</h2>

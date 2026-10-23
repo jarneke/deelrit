@@ -28,8 +28,8 @@
   max-width: 100%;
   padding: 5px 9px;
   border-radius: 7px;
-  background: #f0f4fd;
-  color: #29456a;
+  background: var(--accent-soft);
+  color: var(--selection-text);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -40,7 +40,7 @@
 }
 
 .guest {
-  color: #69788d;
+  color: var(--muted);
   font-size: 11px;
   white-space: nowrap;
 }

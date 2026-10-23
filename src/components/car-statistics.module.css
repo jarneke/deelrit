@@ -11,7 +11,7 @@
 .back {
   display: inline-block;
   padding: 8px 0;
-  color: #3157be;
+  color: var(--accent-text);
   text-decoration: none;
   font-size: 14px;
 }
@@ -27,14 +27,14 @@
 }
 
 .heading > p:last-child {
-  color: #596a80;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.6;
 }
 
 .eyebrow {
   margin: 0 0 8px;
-  color: #596a80;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -58,7 +58,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  color: #596a80;
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -67,10 +67,10 @@
   min-height: 42px;
   max-width: 100%;
   padding: 10px 12px;
-  border: 1px solid #ccd5e2;
+  border: 1px solid var(--input-border);
   border-radius: 9px;
-  background: #ffffff;
-  color: #192c45;
+  background: var(--surface);
+  color: var(--text);
   font: inherit;
   font-size: 16px;
 }
@@ -87,9 +87,9 @@
   min-width: 0;
   margin-bottom: 18px;
   padding: 22px;
-  border: 1px solid #dce3ee;
+  border: 1px solid var(--border);
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .metrics .card {
@@ -111,13 +111,13 @@
 }
 
 .muted {
-  color: #596a80;
+  color: var(--muted);
   font-size: 13px;
 }
 
 .small,
 .footnote {
-  color: #596a80;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.7;
 }
@@ -157,7 +157,7 @@
 .estimate {
   display: block;
   margin-top: 8px;
-  color: #3157be;
+  color: var(--accent-text);
   font-size: 26px;
   font-variant-numeric: tabular-nums;
 }
@@ -172,10 +172,10 @@
 .carLink {
   min-height: 40px;
   padding: 9px 12px;
-  border: 1px solid #ccd5e2;
+  border: 1px solid var(--input-border);
   border-radius: 9px;
-  background: #ffffff;
-  color: #3157be;
+  background: var(--surface);
+  color: var(--accent-text);
   font: inherit;
   font-size: 13px;
   cursor: pointer;
@@ -186,21 +186,21 @@
   align-items: center;
   min-height: 36px;
   padding: 7px 11px;
-  color: #596a80;
+  color: var(--muted);
   text-decoration: none;
   font-size: 12px;
 }
 
 .tabs button[aria-pressed="true"] {
-  border-color: #3f69dc;
-  background: #edf2fd;
-  color: #274b9d;
+  border-color: var(--selection-border);
+  background: var(--selection-bg);
+  color: var(--selection-text);
 }
 
 .tabs button:hover,
 .pagination button:hover:not(:disabled),
 .carLink:hover {
-  background: #edf2fd;
+  background: var(--accent-soft);
 }
 
 .pagination button:disabled {
@@ -211,7 +211,7 @@
 .legend {
   margin: 14px 0;
   font-size: 12px;
-  color: #596a80;
+  color: var(--muted);
 }
 
 .legend > span {
@@ -230,43 +230,43 @@
 }
 
 .series0 {
-  color: #3f69dc;
-  fill: #3f69dc;
+  color: var(--chart-1);
+  fill: var(--chart-1);
 }
 
 .series1 {
-  color: #9657bd;
-  fill: #9657bd;
+  color: var(--chart-2);
+  fill: var(--chart-2);
 }
 
 .series2 {
-  color: #238d83;
-  fill: #238d83;
+  color: var(--chart-3);
+  fill: var(--chart-3);
 }
 
 .series3 {
-  color: #bc7027;
-  fill: #bc7027;
+  color: var(--chart-4);
+  fill: var(--chart-4);
 }
 
 .series4 {
-  color: #c25075;
-  fill: #c25075;
+  color: var(--chart-5);
+  fill: var(--chart-5);
 }
 
 .series5 {
-  color: #66772c;
-  fill: #66772c;
+  color: var(--chart-6);
+  fill: var(--chart-6);
 }
 
 .series6 {
-  color: #48799d;
-  fill: #48799d;
+  color: var(--chart-7);
+  fill: var(--chart-7);
 }
 
 .series7 {
-  color: #805c45;
-  fill: #805c45;
+  color: var(--chart-8);
+  fill: var(--chart-8);
 }
 
 .chart {
@@ -277,7 +277,7 @@
   display: flex;
   justify-content: space-between;
   padding: 0 85px 5px 105px;
-  color: #596a80;
+  color: var(--muted);
   font-size: 11px;
 }
 
@@ -294,7 +294,7 @@
   border: 0;
   border-radius: 5px;
   background: transparent;
-  color: #192c45;
+  color: var(--text);
   font: inherit;
   font-size: 12px;
   text-align: left;
@@ -305,7 +305,7 @@
 }
 
 .barButton:hover {
-  background: #f1f5fd;
+  background: var(--accent-soft);
 }
 
 .barLabel,
@@ -320,12 +320,12 @@
 }
 
 .track {
-  fill: #edf0f5;
+  fill: var(--border-soft);
 }
 
 .selection {
   margin: 16px 0 0;
-  color: #3157be;
+  color: var(--accent-text);
   font-size: 12px;
   line-height: 1.8;
 }
@@ -333,14 +333,14 @@
 .rule {
   margin: 20px 0;
   border: 0;
-  border-top: 1px solid #edf0f5;
+  border-top: 1px solid var(--border-soft);
 }
 
 .warning {
   padding: 12px;
   border-radius: 9px;
-  background: #fff3df;
-  color: #7a4b0a;
+  background: var(--warning-bg);
+  color: var(--warning);
   font-size: 13px;
   line-height: 1.7;
 }
@@ -359,14 +359,14 @@
 .tableWrap th,
 .tableWrap td {
   padding: 13px 10px;
-  border-bottom: 1px solid #edf0f5;
+  border-bottom: 1px solid var(--border-soft);
   text-align: right;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
 .tableWrap th {
-  color: #596a80;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 500;
 }
@@ -411,7 +411,7 @@
 .tabs button:focus-visible,
 .pagination button:focus-visible,
 .barButton:focus-visible {
-  outline: 3px solid #3f69dc;
+  outline: 3px solid var(--accent-text);
   outline-offset: 3px;
 }
 

@@ -13,7 +13,7 @@
 
 .count {
   margin: 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 14px;
 }
 
@@ -29,29 +29,29 @@
 }
 
 .primary {
-  border: 1px solid #3f69dc;
-  background: #3f69dc;
-  color: #ffffff;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-on);
 }
 
 .primary:hover:not(:disabled) {
-  background: #3157be;
-  border-color: #3157be;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .secondary {
-  border: 1px solid #ccd5e2;
-  background: #ffffff;
-  color: #192c45;
+  border: 1px solid var(--input-border);
+  background: var(--surface);
+  color: var(--text);
 }
 
 .secondary:hover:not(:disabled) {
-  background: #eef2f9;
+  background: var(--surface-hover);
 }
 
 .primary:focus-visible,
 .secondary:focus-visible {
-  outline: 3px solid #3f69dc;
+  outline: 3px solid var(--accent-text);
   outline-offset: 3px;
 }
 
@@ -63,9 +63,9 @@
 .formPanel {
   margin-bottom: 24px;
   padding: 24px;
-  border: 1px solid #dce3ee;
+  border: 1px solid var(--border);
   border-radius: 18px;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .sectionTitle {
@@ -75,7 +75,7 @@
 
 .description {
   margin: 10px 0 24px;
-  color: #596a80;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -105,17 +105,17 @@
   width: 100%;
   min-width: 0;
   padding: 13px 15px;
-  border: 1px solid #ccd5e2;
+  border: 1px solid var(--input-border);
   border-radius: 10px;
-  background: #ffffff;
-  color: #192c45;
+  background: var(--surface);
+  color: var(--text);
   font: inherit;
   font-size: 16px;
 }
 
 .field input:focus-visible {
-  border-color: #3f69dc;
-  outline: 3px solid #3f69dc30;
+  border-color: var(--accent-text);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -127,7 +127,7 @@
 
 .error {
   margin: 0;
-  color: #b42318;
+  color: var(--danger);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -136,15 +136,15 @@
   margin: 0 0 20px;
   padding: 14px 16px;
   border-radius: 10px;
-  background: #e5ecfc;
-  color: #274b9d;
+  background: var(--accent-soft-strong);
+  color: var(--selection-text);
   font-size: 14px;
   line-height: 1.5;
 }
 
 .empty {
   padding: 44px 24px;
-  border: 1px dashed #c5cfdf;
+  border: 1px dashed var(--input-border);
   border-radius: 18px;
   text-align: center;
 }
@@ -156,8 +156,8 @@
   height: 56px;
   margin: 0 auto 20px;
   border-radius: 16px;
-  background: #e5ecfc;
-  color: #3157be;
+  background: var(--accent-soft-strong);
+  color: var(--accent-text);
   font-size: 28px;
 }
 
@@ -169,7 +169,7 @@
 .empty p {
   max-width: 360px;
   margin: 12px auto 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.7;
 }
@@ -182,9 +182,9 @@
 
 .car {
   padding: 24px;
-  border: 1px solid #dce3ee;
+  border: 1px solid var(--border);
   border-radius: 18px;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .carTop {
@@ -201,16 +201,16 @@
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: #edf2fd;
-  color: #3f69dc;
+  background: var(--accent-soft);
+  color: var(--accent-text);
   font-size: 24px;
 }
 
 .badge {
   padding: 6px 9px;
   border-radius: 7px;
-  background: #f0f3f8;
-  color: #596a80;
+  background: var(--surface-subtle);
+  color: var(--muted);
   font-size: 11px;
 }
 
@@ -222,7 +222,7 @@
 
 .plate {
   margin: 9px 0 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 13px;
   overflow-wrap: anywhere;
 }
@@ -230,8 +230,8 @@
 .carHint {
   margin: 20px 0 0;
   padding-top: 16px;
-  border-top: 1px solid #edf0f5;
-  color: #596a80;
+  border-top: 1px solid var(--border-soft);
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
 }

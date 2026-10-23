@@ -1,8 +1,129 @@
 :root {
   color-scheme: light;
-  background: #f4f6fa;
-  color: #192c45;
+
+  --bg: #f4f6fa;
+  --surface: #ffffff;
+  --surface-subtle: #f7f9fd;
+  --surface-hover: #eef2f9;
+
+  --text: #192c45;
+  --muted: #596a80;
+  --subtle: #748196;
+
+  --border: #dce3ee;
+  --border-soft: #edf0f5;
+  --input-border: #ccd5e2;
+
+  --accent: #3f69dc;
+  --accent-hover: #3157be;
+  --accent-text: #3157be;
+  --accent-on: #ffffff;
+  --accent-soft: #edf2fd;
+  --accent-soft-strong: #e5ecfc;
+  --accent-soft-hover: #d5e1fb;
+  --accent-border: #b6c8f3;
+  --focus-ring: #3f69dc30;
+
+  --selection-bg: #edf2fd;
+  --selection-border: #3f69dc;
+  --selection-text: #274b9d;
+
+  --hero-bg: #203b72;
+  --hero-text: #ffffff;
+  --hero-muted: #d0dbf4;
+
+  --danger: #b42318;
+  --danger-bg: #fff0ef;
+  --danger-border: #fecdca;
+  --danger-solid: #b42318;
+  --danger-solid-hover: #921c13;
+  --danger-on: #ffffff;
+
+  --success: #247548;
+  --success-bg: #edf8f0;
+
+  --warning: #7a4b0a;
+  --warning-bg: #fff3df;
+
+  --overlay: #10213b80;
+  --shadow-dialog: 0 24px 80px #10213b30;
+  --shadow-card: 0 16px 48px rgb(25 44 69 / 5%);
+  --shadow-hover: 0 4px 18px #203b720a;
+
+  --chart-1: #3f69dc;
+  --chart-2: #9657bd;
+  --chart-3: #238d83;
+  --chart-4: #bc7027;
+  --chart-5: #c25075;
+  --chart-6: #66772c;
+  --chart-7: #48799d;
+  --chart-8: #805c45;
+
+  background: var(--bg);
+  color: var(--text);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #121214;
+  --surface: #1d1d21;
+  --surface-subtle: #232328;
+  --surface-hover: #2a2a31;
+
+  --text: #f3f1f6;
+  --muted: #b5afc0;
+  --subtle: #a39bad;
+
+  --border: #36333e;
+  --border-soft: #2c2933;
+  --input-border: #504958;
+
+  --accent: #7042a6;
+  --accent-hover: #8050b8;
+  --accent-text: #c3a3e8;
+  --accent-on: #ffffff;
+  --accent-soft: #2b2137;
+  --accent-soft-strong: #352543;
+  --accent-soft-hover: #433052;
+  --accent-border: #80609d;
+  --focus-ring: #bb95e54d;
+
+  --selection-bg: #352047;
+  --selection-border: #bb95e5;
+  --selection-text: #eadbf9;
+
+  --hero-bg: #30203f;
+  --hero-text: #faf5ff;
+  --hero-muted: #d2bfdf;
+
+  --danger: #ffaaa3;
+  --danger-bg: #3b2528;
+  --danger-border: #875154;
+  --danger-solid: #a92d37;
+  --danger-solid-hover: #bd3742;
+  --danger-on: #ffffff;
+
+  --success: #93d9ad;
+  --success-bg: #20372b;
+
+  --warning: #edc78d;
+  --warning-bg: #3b3020;
+
+  --overlay: #000000a6;
+  --shadow-dialog: 0 24px 80px #00000066;
+  --shadow-card: 0 16px 48px #00000026;
+  --shadow-hover: 0 4px 18px #00000026;
+
+  --chart-1: #bb95e5;
+  --chart-2: #dfb2ee;
+  --chart-3: #70c9bb;
+  --chart-4: #e5ae6d;
+  --chart-5: #e897b3;
+  --chart-6: #b7c981;
+  --chart-7: #8abddf;
+  --chart-8: #c9a68c;
 }
 
 * {
@@ -12,6 +133,8 @@
 body {
   margin: 0;
   min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
 }
 
 button,
@@ -19,6 +142,18 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+input,
+select,
+textarea {
+  accent-color: var(--accent);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--subtle);
+  opacity: 1;
 }
 
 /* Eén uitklappijl voor alle details-elementen in de app. */
@@ -56,8 +191,8 @@ textarea {
   height: 8px;
   margin: 0;
   border: 0;
-  border-right: 1.75px solid #596a80;
-  border-bottom: 1.75px solid #596a80;
+  border-right: 1.75px solid var(--muted);
+  border-bottom: 1.75px solid var(--muted);
   transform: translateY(-70%) rotate(45deg);
   transform-origin: center;
   transition: transform 160ms ease;
@@ -70,7 +205,7 @@ textarea {
 }
 
 :root details > summary:focus-visible {
-  outline: 3px solid #3f69dc;
+  outline: 3px solid var(--accent-text);
   outline-offset: 3px;
 }
 

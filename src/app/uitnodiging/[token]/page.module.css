@@ -10,15 +10,15 @@
   width: 100%;
   max-width: 440px;
   padding: 32px;
-  border: 1px solid #dce3ee;
+  border: 1px solid var(--border);
   border-radius: 20px;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .logo {
   display: inline-block;
   margin-bottom: 36px;
-  color: #192c45;
+  color: var(--text);
   font-size: 28px;
   font-weight: 700;
   letter-spacing: -1px;
@@ -26,12 +26,12 @@
 }
 
 .logo span {
-  color: #3f69dc;
+  color: var(--accent-text);
 }
 
 .eyebrow {
   margin: 0 0 12px;
-  color: #596a80;
+  color: var(--muted);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 1.5px;
@@ -40,7 +40,7 @@
 
 .title {
   margin: 0;
-  color: #192c45;
+  color: var(--text);
   font-size: 28px;
   letter-spacing: -0.8px;
   overflow-wrap: anywhere;
@@ -48,14 +48,14 @@
 
 .plate {
   margin: 12px 0 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 14px;
   overflow-wrap: anywhere;
 }
 
 .description {
   margin: 20px 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.7;
 }
@@ -64,15 +64,15 @@
   margin: 24px 0;
   padding: 16px;
   border-radius: 12px;
-  background: #f0f4fd;
-  color: #596a80;
+  background: var(--accent-soft);
+  color: var(--muted);
   font-size: 13px;
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
 
 .identity strong {
-  color: #192c45;
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -83,10 +83,10 @@
   width: 100%;
   min-height: 46px;
   padding: 13px 18px;
-  border: 1px solid #3f69dc;
+  border: 1px solid var(--accent);
   border-radius: 11px;
-  background: #3f69dc;
-  color: #ffffff;
+  background: var(--accent);
+  color: var(--accent-on);
   font: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -96,8 +96,8 @@
 }
 
 .primary:hover:not(:disabled) {
-  border-color: #3157be;
-  background: #3157be;
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
 }
 
 .primary:disabled {
@@ -109,7 +109,7 @@
   display: block;
   margin-top: 16px;
   padding: 10px;
-  color: #3157be;
+  color: var(--accent-text);
   font-size: 13px;
   text-align: center;
   text-decoration: none;
@@ -123,13 +123,13 @@
 .primary:focus-visible,
 .secondary:focus-visible,
 .logo:focus-visible {
-  outline: 3px solid #3f69dc;
+  outline: 3px solid var(--accent-text);
   outline-offset: 4px;
 }
 
 .error {
   margin: 0 0 16px;
-  color: #b42318;
+  color: var(--danger);
   font-size: 14px;
   line-height: 1.6;
 }

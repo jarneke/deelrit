@@ -20,7 +20,7 @@
 .back,
 .account {
   padding: 8px 0;
-  color: #3157be;
+  color: var(--accent-text);
   font-size: 14px;
   text-decoration: none;
 }
@@ -33,7 +33,7 @@
 
 .back:focus-visible,
 .account:focus-visible {
-  outline: 3px solid #3f69dc;
+  outline: 3px solid var(--accent-text);
   outline-offset: 4px;
 }
 
@@ -50,8 +50,8 @@
   width: 64px;
   height: 64px;
   border-radius: 18px;
-  background: #e5ecfc;
-  color: #3157be;
+  background: var(--accent-soft-strong);
+  color: var(--accent-text);
   font-size: 32px;
 }
 
@@ -66,7 +66,7 @@
 
 .eyebrow {
   margin: 0 0 8px;
-  color: #596a80;
+  color: var(--muted);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 1.5px;
@@ -83,7 +83,7 @@
 
 .plate {
   margin: 8px 0 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 14px;
   overflow-wrap: anywhere;
 }
@@ -92,26 +92,26 @@
   margin-top: 32px;
   padding: 26px;
   border-radius: 18px;
-  background: #203b72;
-  color: #ffffff;
+  background: var(--hero-bg);
+  color: var(--hero-text);
 }
 
 .balance h2 {
   margin: 0;
-  color: #d0dbf4;
+  color: var(--hero-muted);
   font-size: 14px;
   font-weight: 500;
 }
 
 .balance p {
   margin: 12px 0 0;
-  color: #d0dbf4;
+  color: var(--hero-muted);
   font-size: 14px;
   line-height: 1.6;
 }
 
 .balance .amount {
-  color: #ffffff;
+  color: var(--hero-text);
   font-size: clamp(24px, 5vw, 34px);
   font-weight: 600;
 }
@@ -126,9 +126,9 @@
 .card,
 .members {
   padding: 24px;
-  border: 1px solid #dce3ee;
+  border: 1px solid var(--border);
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .card h2,
@@ -139,7 +139,7 @@
 
 .card p {
   margin: 12px 0 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -159,8 +159,8 @@
 .badge {
   padding: 7px 10px;
   border-radius: 8px;
-  background: #edf2fd;
-  color: #3157be;
+  background: var(--accent-soft);
+  color: var(--accent-text);
   font-size: 11px;
 }
 
@@ -175,7 +175,7 @@
   align-items: center;
   gap: 12px;
   padding: 16px 0;
-  border-bottom: 1px solid #edf0f5;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .member:last-child {
@@ -189,8 +189,8 @@
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: #e5ecfc;
-  color: #3157be;
+  background: var(--accent-soft-strong);
+  color: var(--accent-text);
   font-size: 15px;
   font-weight: 600;
 }
@@ -208,13 +208,13 @@
 
 .memberRole {
   margin: 5px 0 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 12px;
 }
 
 .memberHint {
   margin: 16px 0 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
 }

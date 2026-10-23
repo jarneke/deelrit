@@ -20,17 +20,17 @@
 }
 
 .button.danger {
-  border-color: #fecdca;
-  background: #ffffff;
-  color: #b42318;
+  border-color: var(--danger-border);
+  background: var(--surface);
+  color: var(--danger);
 }
 
 .button.danger:hover:not(:disabled) {
-  background: #fff0ef;
+  background: var(--danger-bg);
 }
 
 .button:focus-visible {
-  outline: 3px solid #3f69dc;
+  outline: 3px solid var(--accent-text);
   outline-offset: 3px;
 }
 

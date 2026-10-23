@@ -1,10 +1,10 @@
 .panel {
   margin-top: 24px;
   padding: 24px;
-  border: 1px solid #dce3ee;
+  border: 1px solid var(--border);
   border-radius: 16px;
-  background: #ffffff;
-  color: #192c45;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .header {
@@ -23,13 +23,13 @@
 .description,
 .foldDescription {
   margin: 12px 0 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 13px;
   line-height: 1.7;
 }
 
 .description strong {
-  color: #192c45;
+  color: var(--text);
 }
 
 .paymentSection {
@@ -44,7 +44,7 @@
 
 .bigAmount {
   margin: 10px 0 0;
-  color: #3157be;
+  color: var(--accent-text);
   font-size: 30px;
   font-weight: 600;
   letter-spacing: -0.8px;
@@ -52,14 +52,14 @@
 }
 
 .receives {
-  color: #247548;
+  color: var(--success);
   font-variant-numeric: tabular-nums;
 }
 
 .detail {
   display: block;
   margin: 6px 0 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
   overflow-wrap: anywhere;
@@ -75,9 +75,9 @@
 .transfer,
 .period {
   min-width: 0;
-  border: 1px solid #dce3ee;
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .transferSummary,
@@ -101,7 +101,7 @@
 
 .transferSummary:hover,
 .periodSummary:hover {
-  background: #f7f9fd;
+  background: var(--surface-subtle);
 }
 
 .transferSummary:focus-visible,
@@ -109,7 +109,7 @@
 .sectionFold > summary:focus-visible,
 .offset > summary:focus-visible,
 .secondary:focus-visible {
-  outline: 3px solid #3f69dc;
+  outline: 3px solid var(--accent-text);
   outline-offset: 3px;
 }
 
@@ -127,8 +127,8 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #edf2fd;
-  color: #3157be;
+  background: var(--accent-soft);
+  color: var(--accent-text);
   font-size: 12px;
   font-weight: 600;
 }
@@ -164,7 +164,7 @@
 }
 
 .transferAmount {
-  color: #3157be;
+  color: var(--accent-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -172,7 +172,7 @@
 .periodBody {
   margin: 0 18px;
   padding: 18px 0;
-  border-top: 1px solid #edf0f5;
+  border-top: 1px solid var(--border-soft);
 }
 
 .smallHeading {
@@ -197,7 +197,7 @@
   justify-content: space-between;
   gap: 16px;
   padding: 12px 0;
-  border-bottom: 1px solid #edf0f5;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .source:last-child,
@@ -235,7 +235,7 @@
   gap: 16px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #edf0f5;
+  border-top: 1px solid var(--border-soft);
   font-size: 13px;
   line-height: 1.7;
 }
@@ -249,7 +249,7 @@
 .offset {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #edf0f5;
+  border-top: 1px solid var(--border-soft);
 }
 
 .offset > summary {
@@ -273,7 +273,7 @@
 .sectionFold {
   margin-top: 22px;
   padding-top: 16px;
-  border-top: 1px solid #edf0f5;
+  border-top: 1px solid var(--border-soft);
 }
 
 .sectionFold > summary {
@@ -288,7 +288,7 @@
 .sectionFold > summary::after {
   content: "⌄";
   margin-left: auto;
-  color: #596a80;
+  color: var(--muted);
 }
 
 .sectionFold[open] > summary::after {
@@ -305,15 +305,15 @@
   flex-shrink: 0;
   padding: 3px 8px;
   border-radius: 6px;
-  background: #edf2fd;
-  color: #3157be;
+  background: var(--accent-soft);
+  color: var(--accent-text);
   font-size: 11px;
 }
 
 .periodSummary::before {
   content: "›";
   flex-shrink: 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 22px;
   line-height: 1;
 }
@@ -341,13 +341,13 @@
 }
 
 .completeBadge {
-  background: #edf8f0;
-  color: #247548;
+  background: var(--success-bg);
+  color: var(--success);
 }
 
 .incompleteBadge {
-  background: #fff3df;
-  color: #7a4b0a;
+  background: var(--warning-bg);
+  color: var(--warning);
 }
 
 .periodActions {
@@ -358,7 +358,7 @@
   gap: 14px;
   margin-top: 18px;
   padding-top: 16px;
-  border-top: 1px solid #edf0f5;
+  border-top: 1px solid var(--border-soft);
 }
 
 .periodActions > p {
@@ -369,17 +369,17 @@
 .secondary {
   min-height: 44px;
   padding: 10px 14px;
-  border: 1px solid #ccd5e2;
+  border: 1px solid var(--input-border);
   border-radius: 10px;
-  background: #ffffff;
-  color: #3157be;
+  background: var(--surface);
+  color: var(--accent-text);
   font: inherit;
   font-size: 12px;
   cursor: pointer;
 }
 
 .secondary:hover:not(:disabled) {
-  background: #edf2fd;
+  background: var(--accent-soft);
 }
 
 .secondary:disabled {
@@ -395,8 +395,8 @@
   gap: 12px;
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #edf0f5;
-  color: #596a80;
+  border-top: 1px solid var(--border-soft);
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -411,8 +411,8 @@
   margin-top: 18px;
   padding: 16px;
   border-radius: 12px;
-  background: #fff3df;
-  color: #7a4b0a;
+  background: var(--warning-bg);
+  color: var(--warning);
 }
 
 .warning p {
@@ -430,28 +430,28 @@
 
 .error {
   margin: 18px 0 0;
-  color: #b42318;
+  color: var(--danger);
   font-size: 13px;
   line-height: 1.7;
 }
 
 .notice {
   margin: 18px 0 0;
-  color: #3157be;
+  color: var(--accent-text);
   font-size: 13px;
   line-height: 1.7;
 }
 
 .empty {
   margin: 20px 0 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.7;
 }
 
 .note {
   margin: 20px 0 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.7;
 }

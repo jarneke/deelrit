@@ -8,11 +8,11 @@
 }
 
 .link:hover {
-  border-color: #9bb2e8;
-  box-shadow: 0 4px 18px #203b720a;
+  border-color: var(--accent-border);
+  box-shadow: var(--shadow-hover);
 }
 
 .link:focus-visible {
-  outline: 3px solid #3f69dc;
+  outline: 3px solid var(--accent-text);
   outline-offset: 4px;
 }

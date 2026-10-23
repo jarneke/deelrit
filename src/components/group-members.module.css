@@ -1,9 +1,9 @@
 .panel {
   margin-top: 24px;
   padding: 24px;
-  border: 1px solid #dce3ee;
+  border: 1px solid var(--border);
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .header {
@@ -22,8 +22,8 @@
   flex-shrink: 0;
   padding: 7px 10px;
   border-radius: 8px;
-  background: #edf2fd;
-  color: #3157be;
+  background: var(--accent-soft);
+  color: var(--accent-text);
   font-size: 11px;
 }
 
@@ -40,7 +40,7 @@
   flex-wrap: wrap;
   gap: 16px;
   padding: 18px 0;
-  border-bottom: 1px solid #edf0f5;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .member:last-child {
@@ -61,8 +61,8 @@
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: #e5ecfc;
-  color: #3157be;
+  background: var(--accent-soft-strong);
+  color: var(--accent-text);
   font-size: 15px;
   font-weight: 600;
 }
@@ -80,7 +80,7 @@
 
 .role {
   margin: 5px 0 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -105,40 +105,40 @@
 }
 
 .primary {
-  background: #3f69dc;
-  color: #ffffff;
+  background: var(--accent);
+  color: var(--accent-on);
 }
 
 .primary:hover:not(:disabled) {
-  background: #3157be;
+  background: var(--accent-hover);
 }
 
 .secondary {
-  border-color: #ccd5e2;
-  background: #ffffff;
-  color: #3157be;
+  border-color: var(--input-border);
+  background: var(--surface);
+  color: var(--accent-text);
 }
 
 .secondary:hover:not(:disabled) {
-  background: #edf2fd;
+  background: var(--accent-soft);
 }
 
 .remove {
   background: transparent;
-  color: #b42318;
+  color: var(--danger);
 }
 
 .remove:hover:not(:disabled) {
-  background: #fff0ee;
+  background: var(--danger-bg);
 }
 
 .danger {
-  background: #b42318;
-  color: #ffffff;
+  background: var(--danger-solid);
+  color: var(--danger-on);
 }
 
 .danger:hover:not(:disabled) {
-  background: #921c13;
+  background: var(--danger-solid-hover);
 }
 
 .primary:disabled,
@@ -153,16 +153,16 @@
 .secondary:focus-visible,
 .remove:focus-visible,
 .danger:focus-visible {
-  outline: 3px solid #3f69dc;
+  outline: 3px solid var(--accent-text);
   outline-offset: 3px;
 }
 
 .confirmation {
   margin-top: 20px;
   padding: 20px;
-  border: 1px solid #d4dff5;
+  border: 1px solid var(--accent-border);
   border-radius: 12px;
-  background: #f0f4fd;
+  background: var(--accent-soft);
 }
 
 .confirmation h3 {
@@ -172,7 +172,7 @@
 
 .confirmation p {
   margin: 10px 0 18px;
-  color: #596a80;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -185,11 +185,11 @@
 }
 
 .error {
-  color: #b42318;
+  color: var(--danger);
 }
 
 .notice {
-  color: #3157be;
+  color: var(--accent-text);
 }
 
 @media (max-width: 540px) {

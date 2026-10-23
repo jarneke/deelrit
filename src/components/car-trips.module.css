@@ -1,10 +1,10 @@
 .panel {
   margin-top: 24px;
   padding: 24px;
-  border: 1px solid #dce3ee;
+  border: 1px solid var(--border);
   border-radius: 16px;
-  background: #ffffff;
-  color: #192c45;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .header,
@@ -30,13 +30,13 @@
 
 .subtitle {
   margin: 10px 0 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 13px;
   line-height: 1.6;
 }
 
 .subtitle strong {
-  color: #192c45;
+  color: var(--text);
   font-weight: 500;
 }
 
@@ -52,22 +52,22 @@
 }
 
 .primary {
-  background: #3f69dc;
-  color: #ffffff;
+  background: var(--accent);
+  color: var(--accent-on);
 }
 
 .primary:hover:not(:disabled) {
-  background: #3157be;
+  background: var(--accent-hover);
 }
 
 .secondary {
-  border-color: #ccd5e2;
-  background: #ffffff;
-  color: #3157be;
+  border-color: var(--input-border);
+  background: var(--surface);
+  color: var(--accent-text);
 }
 
 .secondary:hover:not(:disabled) {
-  background: #edf2fd;
+  background: var(--accent-soft);
 }
 
 .primary:disabled,
@@ -84,7 +84,7 @@
 .form {
   margin-top: 24px;
   padding-top: 24px;
-  border-top: 1px solid #edf0f5;
+  border-top: 1px solid var(--border-soft);
 }
 
 .fields {
@@ -126,10 +126,10 @@
   width: 100%;
   min-width: 0;
   padding: 13px;
-  border: 1px solid #ccd5e2;
+  border: 1px solid var(--input-border);
   border-radius: 10px;
-  background: #ffffff;
-  color: #192c45;
+  background: var(--surface);
+  color: var(--text);
   font: inherit;
   font-size: 16px;
 }
@@ -141,19 +141,19 @@
 .wideField input:focus-visible,
 .historySummary:focus-visible,
 .gapDetails > summary:focus-visible {
-  outline: 3px solid #3f69dc;
+  outline: 3px solid var(--accent-text);
   outline-offset: 3px;
 }
 
 .previousTrip {
   padding: 18px;
   border-radius: 12px;
-  background: #f0f4fd;
+  background: var(--accent-soft);
 }
 
 .contextLabel {
   margin: 0 0 12px;
-  color: #596a80;
+  color: var(--muted);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.7px;
@@ -162,21 +162,21 @@
 
 .contextName {
   margin: 0;
-  color: #192c45;
+  color: var(--text);
   font-size: 14px;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 .contextName span {
-  color: #596a80;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 400;
 }
 
 .contextDistance {
   margin: 8px 0 0;
-  color: #3157be;
+  color: var(--accent-text);
   font-size: 15px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -185,23 +185,23 @@
 .contextBottom {
   margin-top: 16px;
   padding-top: 14px;
-  border-top: 1px solid #dce3ee;
+  border-top: 1px solid var(--border);
 }
 
 .contextBottom p {
   margin: 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 13px;
   line-height: 1.6;
 }
 
 .contextBottom strong {
-  color: #192c45;
+  color: var(--text);
 }
 
 .distance {
   margin: 0;
-  color: #3157be;
+  color: var(--accent-text);
   font-size: 14px;
   font-weight: 500;
 }
@@ -212,14 +212,14 @@
 
 .error {
   margin: 0;
-  color: #b42318;
+  color: var(--danger);
   font-size: 13px;
   line-height: 1.6;
 }
 
 .notice {
   margin: 18px 0 0;
-  color: #3157be;
+  color: var(--accent-text);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -228,8 +228,8 @@
 .gapPreview {
   padding: 16px;
   border-radius: 12px;
-  background: #fff3df;
-  color: #7a4b0a;
+  background: var(--warning-bg);
+  color: var(--warning);
 }
 
 .warning {
@@ -270,7 +270,7 @@
 .history {
   margin-top: 24px;
   padding-top: 16px;
-  border-top: 1px solid #edf0f5;
+  border-top: 1px solid var(--border-soft);
 }
 
 .historySummary {
@@ -291,7 +291,7 @@
 .historySummary::after {
   content: "⌄";
   margin-left: auto;
-  color: #596a80;
+  color: var(--muted);
 }
 
 .history[open] > .historySummary::after {
@@ -311,15 +311,15 @@
   flex-shrink: 0;
   padding: 3px 8px;
   border-radius: 6px;
-  background: #edf2fd;
-  color: #3157be;
+  background: var(--accent-soft);
+  color: var(--accent-text);
   font-size: 11px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
 .historyMeta {
-  color: #596a80;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
 }
@@ -327,8 +327,8 @@
 .historyDescription {
   margin: 12px 0 0;
   padding-bottom: 12px;
-  border-bottom: 1px solid #edf0f5;
-  color: #596a80;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
 }
@@ -342,7 +342,7 @@
 .trip {
   align-items: flex-start;
   padding: 18px 0;
-  border-bottom: 1px solid #edf0f5;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .trip:last-child {
@@ -363,7 +363,7 @@
 
 .detail {
   margin: 6px 0 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
   overflow-wrap: anywhere;
@@ -371,7 +371,7 @@
 
 .description {
   margin: 10px 0 0;
-  color: #192c45;
+  color: var(--text);
   font-size: 13px;
   line-height: 1.6;
   overflow-wrap: anywhere;
@@ -391,8 +391,8 @@
   margin-top: 10px;
   padding: 4px 8px;
   border-radius: 6px;
-  background: #edf8f0;
-  color: #247548;
+  background: var(--success-bg);
+  color: var(--success);
   font-size: 11px;
   font-weight: 500;
   line-height: 1.5;
@@ -406,8 +406,8 @@
   gap: 12px;
   margin-top: 18px;
   padding-top: 16px;
-  border-top: 1px solid #edf0f5;
-  color: #596a80;
+  border-top: 1px solid var(--border-soft);
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -425,7 +425,7 @@
 
 .empty {
   margin: 20px 0 0;
-  color: #596a80;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.7;
 }

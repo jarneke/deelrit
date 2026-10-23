@@ -15,10 +15,10 @@
   justify-content: center;
   min-height: 36px;
   padding: 7px 11px;
-  border: 1px solid #dce3ee;
+  border: 1px solid var(--border);
   border-radius: 9px;
   background: transparent;
-  color: #596a80;
+  color: var(--muted);
   font: inherit;
   font-size: 12px;
   font-weight: 500;
@@ -27,9 +27,9 @@
 }
 
 .trigger:hover {
-  border-color: #b8c8e7;
-  background: #e5ecfc;
-  color: #3157be;
+  border-color: var(--accent-border);
+  background: var(--accent-soft-strong);
+  color: var(--accent-text);
 }
 
 .dialog {
@@ -39,16 +39,16 @@
   margin: auto;
   padding: 24px;
   overflow-y: auto;
-  border: 1px solid #dce3ee;
+  border: 1px solid var(--border);
   border-radius: 20px;
-  background: #ffffff;
-  color: #192c45;
-  box-shadow: 0 24px 80px #10213b30;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-dialog);
   overscroll-behavior: contain;
 }
 
 .dialog::backdrop {
-  background: #10213b80;
+  background: var(--overlay);
 }
 
 .header {
@@ -74,16 +74,16 @@
   padding: 0;
   border: 0;
   border-radius: 9px;
-  background: #f0f3f8;
-  color: #596a80;
+  background: var(--surface-subtle);
+  color: var(--muted);
   font: inherit;
   font-size: 25px;
   cursor: pointer;
 }
 
 .close:hover:not(:disabled) {
-  background: #e5ecfc;
-  color: #192c45;
+  background: var(--accent-soft-strong);
+  color: var(--text);
 }
 
 .close:disabled {
@@ -93,7 +93,7 @@
 
 .description {
   margin: 10px 0 24px;
-  color: #596a80;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -112,7 +112,7 @@
 
 .trigger:focus-visible,
 .close:focus-visible {
-  outline: 3px solid #3f69dc;
+  outline: 3px solid var(--accent-text);
   outline-offset: 3px;
 }
 
