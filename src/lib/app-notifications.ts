@@ -499,15 +499,25 @@ function buildPlans(changes: Change[], members: Member[]): Plan[] {
                     : [],
         );
 
-        const shareChanged =
-            (before ? oldRows.length || 1 : 0) !==
-            (after ? newRows.length || 1 : 0) ||
-            different(before, after, [
-                "start_odometer",
-                "end_odometer",
-                "trip_date",
-                "ended_at",
-            ]);
+        const oldCount = before ? oldRows.length || 1 : 0;
+        const newCount = after ? newRows.length || 1 : 0;
+        const oldDistance =
+            number(before, "end_odometer") - number(before, "start_odometer");
+        const newDistance =
+            number(after, "end_odometer") - number(after, "start_odometer");
+        const distanceChanged = oldDistance !== newDistance;
+        const countChanged = oldCount !== newCount;
+        const odometerChanged = different(before, after, [
+            "start_odometer",
+            "end_odometer",
+        ]);
+        const timeChanged = different(before, after, [
+            "trip_date",
+            "ended_at",
+        ]);
+        const shareChanged = countChanged || odometerChanged || timeChanged;
+        const formatDistance = (value: number) =>
+            new Intl.NumberFormat("nl-BE").format(value) + " km";
 
         for (const userId of new Set([...oldUsers, ...newUsers])) {
             let title = "";
@@ -516,36 +526,110 @@ function buildPlans(changes: Change[], members: Member[]): Plan[] {
             const actor = change.actor_name.slice(0, 80);
 
             if (!after) {
-                title = "Rit verwijderd";
-                body =
-                    actor +
-                    " verwijderde een rit die je mee betaalde voor " +
-                    car +
-                    ".";
+                title = oldCount === 1
+                    ? "Je rit is verwijderd"
+                    : "Gedeelde rit verwijderd";
+                body = actor + " verwijderde een rit van " +
+                    formatDistance(oldDistance) + " met " + car +
+                    (oldCount === 1
+                        ? " die op jouw naam stond."
+                        : " die je mee betaalde.");
             } else if (!newUsers.has(userId)) {
-                title = "Betalers van je rit gewijzigd";
-                body =
-                    actor +
-                    " paste een rit voor " +
-                    car +
-                    " aan. Je staat niet meer als betaler vermeld.";
+                title = oldCount === 1
+                    ? "Rit staat niet meer op jouw naam"
+                    : "Je betaalt niet meer mee aan deze rit";
+                body = actor + " haalde je uit de betalers van een rit van " +
+                    formatDistance(newDistance) + " met " + car + ".";
             } else if (!oldUsers.has(userId)) {
-                title = "Je bent toegevoegd als betaler";
-                body =
-                    actor +
-                    " registreerde jou als betaler voor een rit van " +
-                    (number(after, "end_odometer") -
-                        number(after, "start_odometer")) +
-                    " km met " +
-                    car +
-                    ".";
+                if (newCount === 1) {
+                    title = before
+                        ? "Rit op jouw naam gezet"
+                        : "Rit voor jou geregistreerd";
+                    body = before
+                        ? actor + " zette een bestaande rit van " +
+                        formatDistance(newDistance) + " met " + car +
+                        " op jouw naam."
+                        : actor + " registreerde een rit van " +
+                        formatDistance(newDistance) + " met " + car +
+                        " op jouw naam.";
+                } else if (before) {
+                    title = "Toegevoegd als medebetaler";
+                    body = actor + " voegde je toe als medebetaler van een " +
+                        "bestaande rit van " + formatDistance(newDistance) +
+                        " met " + car + ". Er zijn nu " +
+                        newCount + " betalers in totaal.";
+                } else {
+                    title = "Je deelt de kosten van een rit";
+
+                    if (newUsers.has(change.actor_id) && newCount === 2) {
+                        body = actor + " registreerde een rit van " +
+                            formatDistance(newDistance) + " met " + car +
+                            " die jullie samen betalen.";
+                    } else {
+                        const others = newCount - 1;
+                        body = actor + " registreerde een rit van " +
+                            formatDistance(newDistance) + " met " + car +
+                            " die je samen met " + others +
+                            (others === 1 ? " andere betaler" : " andere betalers") +
+                            " betaalt.";
+                    }
+                }
             } else if (shareChanged) {
-                title = "Gedeelde rit gewijzigd";
-                body =
-                    actor +
-                    " wijzigde een rit die je mee betaalt voor " +
-                    car +
-                    ". Bekijk de verdeling.";
+                const details: string[] = [];
+
+                if (distanceChanged) {
+                    details.push(
+                        "De afstand veranderde van " +
+                        formatDistance(oldDistance) + " naar " +
+                        formatDistance(newDistance) + ".",
+                    );
+                } else if (odometerChanged) {
+                    details.push("De kilometerstanden zijn aangepast.");
+                }
+
+                if (countChanged) {
+                    details.push(
+                        newCount === 1
+                            ? "Je bent nu de enige betaler van deze rit."
+                            : "Je deelt deze rit nu met " + newCount +
+                            " betalers in totaal, inclusief jezelf.",
+                    );
+                }
+
+                if (timeChanged) {
+                    const endedAt = text(after, "ended_at");
+                    const date = text(after, "trip_date");
+                    const parsedDate = new Date(date + "T00:00:00Z");
+
+                    if (endedAt) {
+                        details.push(
+                            "Het geregistreerde eindtijdstip is nu " +
+                            when(endedAt) + ".",
+                        );
+                    } else if (Number.isFinite(parsedDate.getTime())) {
+                        details.push(
+                            "De ritdatum is nu " +
+                            new Intl.DateTimeFormat("nl-BE", {
+                                dateStyle: "medium",
+                                timeZone: "UTC",
+                            }).format(parsedDate) + ".",
+                        );
+                    } else {
+                        details.push("Het tijdstip van de rit is aangepast.");
+                    }
+                }
+
+                title = distanceChanged && countChanged
+                    ? "Rit en verdeling gewijzigd"
+                    : distanceChanged
+                        ? "Afstand van je rit gewijzigd"
+                        : countChanged
+                            ? "Betalers van je rit gewijzigd"
+                            : timeChanged
+                                ? "Tijdstip van je rit gewijzigd"
+                                : "Kilometerstanden van je rit gewijzigd";
+                body = actor + " wijzigde een rit met " + car +
+                    ". " + details.join(" ");
             }
 
             if (title) {
