@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import ActionButton from "./action-button";
 import styles from "./logout-button.module.css";
 
 export default function LogoutButton() {
@@ -11,6 +12,8 @@ export default function LogoutButton() {
   const [error, setError] = useState("");
 
   async function logout() {
+    if (busy) return;
+
     setBusy(true);
     setError("");
 
@@ -33,20 +36,20 @@ export default function LogoutButton() {
 
   return (
     <div className={styles.container}>
-      <button
-        type="button"
+      <ActionButton
+        icon="logout"
+        variant="secondary"
         onClick={logout}
-        disabled={busy}
-        className={styles.button}
+        loading={busy}
       >
-        {busy ? "Even geduld…" : "Uitloggen"}
-      </button>
+        {busy ? "Uitloggen…" : "Uitloggen"}
+      </ActionButton>
 
-      {error && (
+      {error ? (
         <p role="alert" className={styles.error}>
           {error}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

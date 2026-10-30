@@ -2,26 +2,37 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   min-height: 100dvh;
-  padding: 40px 24px;
+  padding: 40px 24px calc(40px + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(ellipse at 15% 10%, var(--accent-soft), transparent 55%),
+    var(--bg);
 }
 
 .card {
+  box-sizing: border-box;
   width: 100%;
-  max-width: 440px;
-  padding: 32px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: var(--surface);
+  max-width: 480px;
+  padding: 36px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-sheen), var(--glass-bg);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    var(--shadow-card);
+  -webkit-backdrop-filter: blur(var(--glass-blur))
+    saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
 }
 
 .logo {
   display: inline-block;
   margin-bottom: 36px;
   color: var(--text);
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 700;
-  letter-spacing: -1px;
+  letter-spacing: -1.4px;
   text-decoration: none;
 }
 
@@ -41,15 +52,23 @@
 .title {
   margin: 0;
   color: var(--text);
-  font-size: 28px;
-  letter-spacing: -0.8px;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -1px;
   overflow-wrap: anywhere;
 }
 
 .plate {
-  margin: 12px 0 0;
-  color: var(--muted);
-  font-size: 14px;
+  display: inline-block;
+  margin: 14px 0 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  letter-spacing: 1px;
   overflow-wrap: anywhere;
 }
 
@@ -57,15 +76,17 @@
   margin: 20px 0;
   color: var(--muted);
   font-size: 14px;
-  line-height: 1.7;
+  line-height: 1.8;
 }
 
 .identity {
   margin: 24px 0;
-  padding: 16px;
-  border-radius: 12px;
-  background: var(--accent-soft);
+  padding: 18px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-sheen), var(--glass-bg);
   color: var(--muted);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
   font-size: 13px;
   line-height: 1.8;
   overflow-wrap: anywhere;
@@ -80,44 +101,49 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   width: 100%;
-  min-height: 46px;
+  min-height: 50px;
   padding: 13px 18px;
-  border: 1px solid var(--accent);
-  border-radius: 11px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--accent-on);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 16%);
   font: inherit;
   font-size: 14px;
   font-weight: 600;
+  line-height: 1.6;
   text-align: center;
   text-decoration: none;
   cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-standard);
 }
 
 .primary:hover:not(:disabled) {
-  border-color: var(--accent-hover);
   background: var(--accent-hover);
 }
 
 .primary:disabled {
-  opacity: 0.6;
-  cursor: wait;
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .secondary {
   display: block;
-  margin-top: 16px;
-  padding: 10px;
-  color: var(--accent-text);
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: var(--radius-pill);
+  color: var(--muted);
   font-size: 13px;
+  line-height: 1.6;
   text-align: center;
   text-decoration: none;
 }
 
 .secondary:hover {
-  text-decoration: underline;
-  text-underline-offset: 4px;
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 .primary:focus-visible,
@@ -129,13 +155,29 @@
 
 .error {
   margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
   color: var(--danger);
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 
-@media (max-width: 420px) {
+@media (max-width: 540px) {
+  .page {
+    padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+  }
+
   .card {
-    padding: 24px;
+    padding: 28px 22px;
+    border-radius: var(--radius-lg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primary {
+    transition: none;
   }
 }

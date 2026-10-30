@@ -1,0 +1,209 @@
+.dialog {
+  position: fixed;
+  inset: 0;
+  width: min(var(--dialog-width), calc(100% - 40px));
+  max-width: none;
+  max-height: min(800px, calc(100dvh - 48px));
+  margin: auto;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: transparent;
+  color: var(--text);
+}
+
+.small {
+  --dialog-width: 440px;
+}
+
+.medium {
+  --dialog-width: 560px;
+}
+
+.large {
+  --dialog-width: 740px;
+}
+
+.dialog::backdrop {
+  background: var(--overlay);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  animation: backdrop-enter var(--motion-normal) var(--ease-standard) both;
+}
+
+.dialog .surface {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: inherit;
+  overflow: hidden;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 var(--glass-shade),
+    var(--shadow-dialog);
+}
+
+.dialog[open] .surface {
+  animation: dialog-enter var(--motion-dialog) var(--ease-out) both;
+}
+
+.handle {
+  display: none;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-shrink: 0;
+  gap: 20px;
+  padding: 28px 28px 22px;
+}
+
+.heading {
+  min-width: 0;
+}
+
+.heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 25px;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.8px;
+  overflow-wrap: anywhere;
+}
+
+.heading h2:focus {
+  outline: none;
+}
+
+.description {
+  max-width: 46ch;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.dialog .header .close {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: -7px;
+  margin-right: -9px;
+}
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 4px 28px 28px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: 20px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 18px 28px;
+  border-top: 1px solid var(--border-soft);
+  background: var(--surface);
+}
+
+@keyframes dialog-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes sheet-enter {
+  from {
+    opacity: 0;
+    transform: translateY(36px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes backdrop-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .dialog {
+    inset: auto 0 0;
+    width: 100%;
+    max-height: calc(100dvh - max(12px, env(safe-area-inset-top, 0px)));
+    margin: 0;
+    border-radius: 28px 28px 0 0;
+  }
+
+  .dialog .surface {
+    border-bottom: 0;
+  }
+
+  .dialog[open] .surface {
+    animation-name: sheet-enter;
+  }
+
+  .handle {
+    display: block;
+    flex-shrink: 0;
+    width: 36px;
+    height: 4px;
+    margin: 10px auto 0;
+    border-radius: var(--radius-pill);
+    background: var(--subtle);
+    opacity: 0.45;
+  }
+
+  .header {
+    gap: 16px;
+    padding: 20px 22px;
+  }
+
+  .heading h2 {
+    font-size: 23px;
+  }
+
+  .body {
+    padding: 2px 22px 24px;
+  }
+
+  .footer {
+    padding: 16px 22px max(20px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .footer > button {
+    flex: 1 1 140px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog::backdrop,
+  .dialog[open] .surface {
+    animation: none;
+  }
+}

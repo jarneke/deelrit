@@ -7,6 +7,9 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { CarOverviewAccessError, loadCarOverview } from "@/lib/car-overview";
 import { logServerError } from "@/lib/server-error";
+import { getCarPhotoSource, getProfilePhotoSource } from "@/lib/github-images";
+import { formatTripPayers } from "@/lib/car-trip-payers";
+import UserAvatar from "@/components/user-avatar";
 import GroupMembers from "@/components/group-members";
 import InvitationLinks from "@/components/invitation-links";
 import CarStartpoint from "@/components/car-startpoint";
@@ -17,9 +20,9 @@ import CarStatementHistory from "@/components/car-statement-history";
 import CarSettings from "@/components/car-settings";
 import CarCalendar from "@/components/car-calendar";
 import LoadingState from "@/components/loading-state";
-import settingsStyles from "@/components/car-settings.module.css";
-import statisticsStyles from "@/components/car-statistics.module.css";
-import profileStyles from "@/app/page.module.css";
+import AppIcon from "@/components/app-icon";
+import CarHero from "@/components/car-hero";
+import CarWorkspace from "@/components/car-workspace";
 import styles from "./page.module.css";
 
 type Props = {
@@ -72,14 +75,19 @@ async function CarOverview({ params }: Props) {
 
   if (!membership) notFound();
 
-  const initials =
-    session.user.name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part.charAt(0))
-      .join("")
-      .toUpperCase() || "?";
+  const profileRows = await db.query<{
+    id: string;
+    image: string | null;
+  }>('SELECT id, image FROM public."user" WHERE id = ANY($1::text[])', [
+    group.members.map((member) => member.userId),
+  ]);
+
+  const avatarSources = new Map(
+    profileRows.rows.map((person) => [
+      person.id,
+      getProfilePhotoSource(person.id, person.image),
+    ]),
+  );
 
   const isOwner = membership.role
     .split(",")
@@ -101,6 +109,16 @@ async function CarOverview({ params }: Props) {
   );
 
   const startpoint = overview.startpoint;
+  const photoUrl = car.logo ?? null;
+  const photoSource = getCarPhotoSource(id, photoUrl);
+
+  const latestOdometer = startpoint
+    ? Math.max(
+        startpoint.odometer,
+        overview.latestTrip?.endOdometer ?? startpoint.odometer,
+        overview.latestRefuel?.odometer ?? startpoint.odometer,
+      )
+    : null;
 
   let invitations: { id: string; expiresAt: string }[] = [];
 
@@ -136,6 +154,7 @@ async function CarOverview({ params }: Props) {
     userId: member.userId,
     name: member.user.name,
     role: member.role,
+    photoSource: avatarSources.get(member.userId) ?? null,
   }));
 
   const drivers = members.map((member) => ({
@@ -151,124 +170,209 @@ async function CarOverview({ params }: Props) {
     <main className={styles.page}>
       <div className={styles.container}>
         <header className={styles.header}>
-          <Link href="/" className={styles.back}>
-            ← Mijn auto’s
+          <Link
+            href="/"
+            className={styles.back}
+            aria-label="Terug naar mijn auto’s"
+          >
+            <AppIcon name="arrow-left" />
+            <span>Mijn auto’s</span>
+          </Link>
+
+          <Link
+            href="/"
+            className={styles.brand}
+            aria-label="Deelrit — mijn auto’s"
+          >
+            deelrit<span>.</span>
           </Link>
 
           <Link
             href="/account"
-            className={profileStyles.avatar}
-            aria-label={`Account van ${session.user.name}`}
+            className={styles.avatar}
+            aria-label={"Account van " + session.user.name}
           >
-            {initials}
+            <UserAvatar
+              name={session.user.name}
+              source={avatarSources.get(session.user.id) ?? null}
+            />
           </Link>
         </header>
 
-        <div className={styles.carHeader}>
-          <div className={styles.carIcon} aria-hidden="true">
-            ↔
-          </div>
-
-          <div className={styles.identity}>
-            <p className={styles.eyebrow}>Gedeelde auto</p>
-
-            <div className={settingsStyles.titleRow}>
-              <h1 className={styles.title}>{car.name}</h1>
-
-              <div className={statisticsStyles.carActions}>
-                <Link
-                  href={"/auto/" + encodeURIComponent(id) + "/statistieken"}
-                  className={statisticsStyles.carLink}
-                >
-                  Statistieken
-                </Link>
-
-                {isOwner && (
+        <CarWorkspace
+          key={id}
+          photoSource={photoSource}
+          statisticsHref={"/auto/" + encodeURIComponent(id) + "/statistieken"}
+          hero={
+            <CarHero
+              name={car.name}
+              licensePlate={car.licensePlate ?? null}
+              photoSource={photoSource}
+              odometer={latestOdometer}
+              memberCount={members.length}
+              tripCount={overview.tripCount}
+              actions={
+                isOwner ? (
                   <CarSettings
                     key={id}
                     organizationId={id}
                     name={car.name}
                     licensePlate={car.licensePlate ?? null}
+                    photoUrl={photoUrl}
+                    photoSource={photoSource}
                   />
-                )}
-              </div>
-            </div>
+                ) : null
+              }
+            />
+          }
+          startpoint={
+            <CarStartpoint
+              organizationId={id}
+              isOwner={isOwner}
+              startpoint={startpoint}
+            />
+          }
+          trips={
+            startpoint ? (
+              <CarTrips
+                organizationId={id}
+                currentUserId={session.user.id}
+                isOwner={isOwner}
+                startOdometer={startpoint.odometer}
+                startDate={startpoint.tankDate}
+                today={today}
+                drivers={drivers}
+                latestTrip={overview.latestTrip}
+                tripCount={overview.tripCount}
+                totalDistance={overview.totalDistance}
+                gaps={overview.gaps}
+                historyRevision={overview.tripHistoryRevision}
+              />
+            ) : null
+          }
+          refuels={
+            startpoint ? (
+              <CarRefuels
+                organizationId={id}
+                currentUserId={session.user.id}
+                isOwner={isOwner}
+                startOdometer={startpoint.odometer}
+                startDate={startpoint.tankDate}
+                today={today}
+                payers={drivers}
+                latestRefuel={overview.latestRefuel}
+                refuelCount={overview.refuelCount}
+                historyRevision={overview.refuelHistoryRevision}
+              />
+            ) : null
+          }
+          recent={
+            <>
+              <h2>Laatste activiteit</h2>
 
-            <p className={styles.plate}>
-              {car.licensePlate || "Geen nummerplaat ingevuld"}
-            </p>
-          </div>
-        </div>
+              {overview.latestTrip ? (
+                <a href="#car-trip-history" aria-label="Laatste rit bekijken">
+                  <span>
+                    <AppIcon name="car" size={19} />
+                  </span>
 
-        <CarStartpoint
-          organizationId={id}
-          isOwner={isOwner}
-          startpoint={startpoint}
-        />
+                  <div>
+                    <strong>{formatTripPayers(overview.latestTrip)}</strong>
+                    <p>
+                      Laatste rit ·{" "}
+                      {overview.latestTrip.tripDate
+                        .split("-")
+                        .reverse()
+                        .join("/")}
+                    </p>
+                  </div>
 
-        {startpoint && (
-          <>
-            <CarTrips
+                  <b>
+                    {new Intl.NumberFormat("nl-BE").format(
+                      overview.latestTrip.endOdometer -
+                        overview.latestTrip.startOdometer,
+                    )}{" "}
+                    km
+                  </b>
+                </a>
+              ) : null}
+
+              {overview.latestRefuel ? (
+                <a
+                  href="#car-refuel-history"
+                  aria-label="Laatste tankbeurt bekijken"
+                >
+                  <span>
+                    <AppIcon name="wallet" size={19} />
+                  </span>
+
+                  <div>
+                    <strong>Volle tank</strong>
+                    <p>
+                      {overview.latestRefuel.tankDate
+                        .split("-")
+                        .reverse()
+                        .join("/")}
+                    </p>
+                  </div>
+
+                  <b>
+                    {new Intl.NumberFormat("nl-BE", {
+                      style: "currency",
+                      currency: "EUR",
+                    }).format(overview.latestRefuel.amountCents / 100)}
+                  </b>
+                </a>
+              ) : null}
+
+              {!overview.latestTrip && !overview.latestRefuel ? (
+                <p>Nog geen ritten of tankbeurten geregistreerd.</p>
+              ) : null}
+            </>
+          }
+          planning={
+            <CarCalendar
+              key={id}
               organizationId={id}
               currentUserId={session.user.id}
               isOwner={isOwner}
-              startOdometer={startpoint.odometer}
-              startDate={startpoint.tankDate}
               today={today}
-              drivers={drivers}
-              latestTrip={overview.latestTrip}
-              tripCount={overview.tripCount}
-              totalDistance={overview.totalDistance}
-              gaps={overview.gaps}
-              historyRevision={overview.tripHistoryRevision}
             />
+          }
+          costs={
+            <>
+              {startpoint && overview.settlementOverview ? (
+                <CarSettlement
+                  organizationId={id}
+                  currentUserId={session.user.id}
+                  isOwner={isOwner}
+                  overview={overview.settlementOverview}
+                />
+              ) : null}
 
-            <CarRefuels
-              organizationId={id}
-              currentUserId={session.user.id}
-              isOwner={isOwner}
-              startOdometer={startpoint.odometer}
-              startDate={startpoint.tankDate}
-              today={today}
-              payers={drivers}
-              latestRefuel={overview.latestRefuel}
-              refuelCount={overview.refuelCount}
-              historyRevision={overview.refuelHistoryRevision}
-            />
-          </>
-        )}
+              <CarStatementHistory
+                organizationId={id}
+                key={overview.statementHistoryRevision}
+              />
+            </>
+          }
+          group={
+            <>
+              <GroupMembers
+                organizationId={id}
+                currentUserId={session.user.id}
+                members={members}
+              />
 
-        <CarCalendar
-          key={id}
-          organizationId={id}
-          currentUserId={session.user.id}
-          isOwner={isOwner}
-          today={today}
+              {isOwner ? (
+                <InvitationLinks
+                  organizationId={id}
+                  invitations={invitations}
+                />
+              ) : null}
+            </>
+          }
         />
-
-        {startpoint && overview.settlementOverview && (
-          <CarSettlement
-            organizationId={id}
-            currentUserId={session.user.id}
-            isOwner={isOwner}
-            overview={overview.settlementOverview}
-          />
-        )}
-
-        <CarStatementHistory
-          organizationId={id}
-          key={overview.statementHistoryRevision}
-        />
-
-        <GroupMembers
-          organizationId={id}
-          currentUserId={session.user.id}
-          members={members}
-        />
-
-        {isOwner && (
-          <InvitationLinks organizationId={id} invitations={invitations} />
-        )}
       </div>
     </main>
   );

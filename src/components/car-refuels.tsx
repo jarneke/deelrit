@@ -1,19 +1,15 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  useTransition,
-  type FormEvent,
-} from "react";
+import { useId, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createCarRefuel, updateCarRefuel } from "@/actions/car-refuels";
 import { deleteCarRefuel } from "@/actions/delete-car-refuel";
 import type { RefuelHistoryItem } from "@/lib/car-history-types";
 import ActionButton from "./action-button";
 import CarRefuelHistory from "./car-refuel-history";
+import ResponsiveDialog from "./responsive-dialog";
 import styles from "./car-trips.module.css";
+import entryStyles from "./car-entry-form.module.css";
 
 type Payer = {
   userId: string;
@@ -36,6 +32,7 @@ type Props = {
 };
 
 const numbers = new Intl.NumberFormat("nl-BE");
+
 const euros = new Intl.NumberFormat("nl-BE", {
   style: "currency",
   currency: "EUR",
@@ -71,16 +68,20 @@ export default function CarRefuels({
   historyRevision,
 }: Props) {
   const router = useRouter();
-  const formRef = useRef<HTMLFormElement>(null);
-  const deleteRef = useRef<HTMLDivElement>(null);
+  const id = useId();
+  const formId = `${id}-form`;
+  const dialogId = `${id}-dialog`;
 
   const [showForm, setShowForm] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+
   const [editingRefuel, setEditingRefuel] = useState<RefuelHistoryItem | null>(
     null,
   );
+
   const [deletingRefuel, setDeletingRefuel] =
     useState<RefuelHistoryItem | null>(null);
+
   const [paidBy, setPaidBy] = useState(currentUserId);
   const [tankDate, setTankDate] = useState(today);
   const [dateLimit, setDateLimit] = useState(today);
@@ -93,21 +94,6 @@ export default function CarRefuels({
 
   const busy = saving || refreshing;
   const interactionOpen = showForm || deletingRefuel !== null;
-
-  useEffect(() => {
-    const target = showForm
-      ? formRef.current
-      : deletingRefuel
-        ? deleteRef.current
-        : null;
-
-    target?.scrollIntoView({
-      block: "start",
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
-    });
-  }, [showForm, deletingRefuel]);
 
   const referenceRefuel = editingRefuel ?? latestRefuel;
   const nextRefuel = editingRefuel?.nextRefuel;
@@ -266,7 +252,11 @@ export default function CarRefuels({
 
       if (!result.success) {
         setError(result.error);
-        if (result.refreshRequired) refreshPage();
+
+        if (result.refreshRequired) {
+          refreshPage();
+        }
+
         return;
       }
 
@@ -295,238 +285,267 @@ export default function CarRefuels({
           </p>
         </div>
 
-        {!interactionOpen && (
-          <ActionButton
-            icon="plus"
-            onClick={openCreateForm}
-            className={styles.primary}
-            disabled={busy}
-          >
-            Volle tankbeurt toevoegen
-          </ActionButton>
-        )}
+        <ActionButton
+          icon="plus"
+          variant="primary"
+          onClick={openCreateForm}
+          disabled={busy || interactionOpen}
+          aria-haspopup="dialog"
+          aria-expanded={showForm}
+          aria-controls={dialogId}
+        >
+          Volle tankbeurt toevoegen
+        </ActionButton>
       </div>
 
-      {deletingRefuel && (
-        <div
-          ref={deleteRef}
-          className={styles.warning}
-          role="region"
-          aria-label="Tankbeurt verwijderen"
-        >
-          <h3>Deze tankbeurt verwijderen?</h3>
+      {!interactionOpen && error ? (
+        <p role="alert" className={styles.error}>
+          {error}
+        </p>
+      ) : null}
 
-          <p className={styles.detail}>
-            {formatDate(deletingRefuel.tankDate)}
-            {" · "}
-            {numbers.format(deletingRefuel.odometer)} km
-            {" · "}
-            {euros.format(deletingRefuel.amountCents / 100)}
-            {" · Betaald door "}
-            {deletingRefuel.payerName}
-          </p>
-
-          <p className={styles.detail}>
-            De ritten blijven behouden. De afrekening wordt opnieuw berekend met
-            de overblijvende tankbeurten. Zonder volgende tankbeurt blijft deze
-            afstand open tot er opnieuw een volle tank geregistreerd is.
-          </p>
-
-          <div className={styles.formActions}>
+      <ResponsiveDialog
+        id={dialogId}
+        open={showForm}
+        onClose={closeForm}
+        title={editingRefuel ? "Tankbeurt bewerken" : "Tankbeurt toevoegen"}
+        description="Registreer een volle tank en het volledige betaalde bedrag."
+        busy={busy}
+        size="medium"
+        footer={
+          <>
             <ActionButton
-              icon="trash"
-              danger
-              loading={saving}
+              icon="close"
+              variant="secondary"
               disabled={busy}
-              className={styles.secondary}
-              onClick={removeRefuel}
+              onClick={closeForm}
             >
-              {saving ? "Verwijderen…" : "Tankbeurt verwijderen"}
+              Annuleren
             </ActionButton>
 
             <ActionButton
+              type="submit"
+              form={formId}
+              icon="save"
+              variant="primary"
+              loading={saving}
+              disabled={busy}
+            >
+              {saving
+                ? "Opslaan…"
+                : editingRefuel
+                  ? "Wijzigingen opslaan"
+                  : "Volle tankbeurt opslaan"}
+            </ActionButton>
+          </>
+        }
+      >
+        {showForm ? (
+          <form
+            id={formId}
+            onSubmit={submit}
+            className={entryStyles.entryForm}
+            aria-label={
+              editingRefuel ? "Tankbeurt bewerken" : "Tankbeurt toevoegen"
+            }
+            aria-busy={busy}
+          >
+            <fieldset disabled={busy} className={styles.fields}>
+              <div className={`${styles.previousTrip} ${entryStyles.context}`}>
+                <p className={styles.contextLabel}>
+                  {editingRefuel
+                    ? "Tankbeurt bewerken"
+                    : latestRefuel
+                      ? "Laatste volle tank"
+                      : "Startpunt"}
+                </p>
+
+                <p className={styles.contextName}>
+                  {formatDate(referenceRefuel?.tankDate ?? startDate)}
+                </p>
+
+                <p className={styles.contextDistance}>
+                  {numbers.format(referenceRefuel?.odometer ?? startOdometer)}{" "}
+                  km
+                </p>
+
+                {referenceRefuel ? (
+                  <p className={styles.detail}>
+                    {euros.format(referenceRefuel.amountCents / 100)}
+                    {" · Betaald door "}
+                    {referenceRefuel.payerName}
+                  </p>
+                ) : null}
+              </div>
+
+              {boundaryLocked && nextRefuel ? (
+                <div className={styles.gapPreview}>
+                  <h3>Datum en kilometerstand liggen vast</h3>
+
+                  <p>
+                    Ze vormen de startgrens van de afgerekende tankperiode die
+                    eindigt op {formatDate(nextRefuel.tankDate)}. Een eigenaar
+                    moet die periode eerst opnieuw openen om deze twee velden te
+                    wijzigen. Bedrag en betaler kun je wel aanpassen.
+                  </p>
+                </div>
+              ) : null}
+
+              <div className={styles.field}>
+                <label htmlFor={`${id}-date`}>Tankdatum</label>
+
+                <input
+                  id={`${id}-date`}
+                  type="date"
+                  min={startDate}
+                  max={dateLimit}
+                  value={tankDate}
+                  disabled={boundaryLocked}
+                  onChange={(event) => setTankDate(event.target.value)}
+                  required
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor={`${id}-odometer`}>
+                  Kilometerstand bij het tanken
+                </label>
+
+                <input
+                  id={`${id}-odometer`}
+                  type="number"
+                  min={startOdometer + 1}
+                  max="2147483647"
+                  step="1"
+                  inputMode="numeric"
+                  value={odometer}
+                  disabled={boundaryLocked}
+                  onChange={(event) => setOdometer(event.target.value)}
+                  required
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor={`${id}-amount`}>
+                  Totaal betaald bedrag (€)
+                </label>
+
+                <input
+                  id={`${id}-amount`}
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="72,80"
+                  maxLength={11}
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value)}
+                  aria-describedby={`${id}-amount-help`}
+                  required
+                />
+
+                <p id={`${id}-amount-help`} className={styles.detail}>
+                  Het volledige bedrag van deze tankbeurt.
+                </p>
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor={`${id}-payer`}>Wie heeft betaald?</label>
+
+                <select
+                  id={`${id}-payer`}
+                  value={paidBy}
+                  onChange={(event) => setPaidBy(event.target.value)}
+                  required
+                >
+                  {formerPayer ? (
+                    <option value={formerPayer.paidBy}>
+                      {formerPayer.payerName}
+                      {" · geen groepslid meer"}
+                    </option>
+                  ) : null}
+
+                  {payers.map((payer) => (
+                    <option key={payer.userId} value={payer.userId}>
+                      {payer.name}
+                      {payer.userId === currentUserId ? " · jij" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {error ? (
+                <p role="alert" className={styles.error}>
+                  {error}
+                </p>
+              ) : null}
+            </fieldset>
+          </form>
+        ) : null}
+      </ResponsiveDialog>
+
+      <ResponsiveDialog
+        open={deletingRefuel !== null}
+        onClose={closeDeleteForm}
+        title="Tankbeurt verwijderen?"
+        busy={busy}
+        size="small"
+        footer={
+          <>
+            <ActionButton
               icon="close"
-              className={styles.secondary}
+              variant="secondary"
               disabled={busy}
               onClick={closeDeleteForm}
             >
               Annuleren
             </ActionButton>
-          </div>
-        </div>
-      )}
 
-      {showForm && (
-        <form
-          ref={formRef}
-          onSubmit={submit}
-          className={styles.form}
-          aria-label={
-            editingRefuel ? "Tankbeurt bewerken" : "Tankbeurt toevoegen"
-          }
-        >
-          <fieldset disabled={busy} className={styles.fields}>
-            <div className={styles.previousTrip}>
-              <p className={styles.contextLabel}>
-                {editingRefuel
-                  ? "Tankbeurt bewerken"
-                  : latestRefuel
-                    ? "Laatste volle tank"
-                    : "Startpunt"}
-              </p>
-
-              <p className={styles.contextName}>
-                {formatDate(referenceRefuel?.tankDate ?? startDate)}
-              </p>
-
-              <p className={styles.contextDistance}>
-                {numbers.format(referenceRefuel?.odometer ?? startOdometer)} km
-              </p>
-
-              {referenceRefuel && (
-                <p className={styles.detail}>
-                  {euros.format(referenceRefuel.amountCents / 100)}
-                  {" · Betaald door "}
-                  {referenceRefuel.payerName}
-                </p>
-              )}
-            </div>
-
-            {boundaryLocked && nextRefuel && (
-              <div className={styles.gapPreview}>
-                <h3>Datum en kilometerstand liggen vast</h3>
-
-                <p>
-                  Ze vormen de startgrens van de afgerekende tankperiode die
-                  eindigt op {formatDate(nextRefuel.tankDate)}. Een eigenaar
-                  moet die periode eerst opnieuw openen om deze twee velden te
-                  wijzigen. Bedrag en betaler kun je wel aanpassen.
-                </p>
-              </div>
-            )}
-
-            <div className={styles.field}>
-              <label htmlFor="refuel-date">Tankdatum</label>
-
-              <input
-                id="refuel-date"
-                type="date"
-                min={startDate}
-                max={dateLimit}
-                value={tankDate}
-                disabled={boundaryLocked}
-                onChange={(event) => setTankDate(event.target.value)}
-                required
-              />
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="refuel-odometer">
-                Kilometerstand bij het tanken
-              </label>
-
-              <input
-                id="refuel-odometer"
-                type="number"
-                min={startOdometer + 1}
-                max="2147483647"
-                step="1"
-                inputMode="numeric"
-                value={odometer}
-                disabled={boundaryLocked}
-                onChange={(event) => setOdometer(event.target.value)}
-                required
-              />
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="refuel-amount">Totaal betaald bedrag (€)</label>
-
-              <input
-                id="refuel-amount"
-                type="text"
-                inputMode="decimal"
-                placeholder="72,80"
-                maxLength={11}
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                aria-describedby="refuel-amount-help"
-                required
-              />
-
-              <p id="refuel-amount-help" className={styles.detail}>
-                Het volledige bedrag van deze tankbeurt.
+            <ActionButton
+              icon="trash"
+              variant="primary"
+              danger
+              loading={saving}
+              disabled={busy}
+              onClick={() => void removeRefuel()}
+            >
+              {saving ? "Verwijderen…" : "Tankbeurt verwijderen"}
+            </ActionButton>
+          </>
+        }
+      >
+        {deletingRefuel ? (
+          <div className={entryStyles.deleteContent}>
+            <div className={entryStyles.deleteSummary}>
+              <p className={styles.description}>
+                <strong>{formatDate(deletingRefuel.tankDate)}</strong>
+                <br />
+                {numbers.format(deletingRefuel.odometer)} km
+                {" · "}
+                {euros.format(deletingRefuel.amountCents / 100)}
+                <br />
+                Betaald door {deletingRefuel.payerName}
               </p>
             </div>
 
-            <div className={styles.field}>
-              <label htmlFor="refuel-payer">Wie heeft betaald?</label>
+            <p className={entryStyles.deleteExplanation}>
+              De ritten blijven behouden. De afrekening wordt opnieuw berekend
+              met de overblijvende tankbeurten. Zonder volgende tankbeurt blijft
+              deze afstand open tot er opnieuw een volle tank geregistreerd is.
+            </p>
 
-              <select
-                id="refuel-payer"
-                value={paidBy}
-                onChange={(event) => setPaidBy(event.target.value)}
-                required
-              >
-                {formerPayer && (
-                  <option value={formerPayer.paidBy}>
-                    {formerPayer.payerName}
-                    {" · geen groepslid meer"}
-                  </option>
-                )}
-
-                {payers.map((payer) => (
-                  <option key={payer.userId} value={payer.userId}>
-                    {payer.name}
-                    {payer.userId === currentUserId ? " · jij" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {error && (
+            {error ? (
               <p role="alert" className={styles.error}>
                 {error}
               </p>
-            )}
+            ) : null}
+          </div>
+        ) : null}
+      </ResponsiveDialog>
 
-            <div className={styles.formActions}>
-              <ActionButton
-                type="submit"
-                icon="save"
-                loading={saving}
-                className={styles.primary}
-              >
-                {saving
-                  ? "Opslaan…"
-                  : editingRefuel
-                    ? "Wijzigingen opslaan"
-                    : "Volle tankbeurt opslaan"}
-              </ActionButton>
-
-              <ActionButton
-                icon="close"
-                className={styles.secondary}
-                onClick={closeForm}
-              >
-                Annuleren
-              </ActionButton>
-            </div>
-          </fieldset>
-        </form>
-      )}
-
-      {error && !showForm && (
-        <p role="alert" className={styles.error}>
-          {error}
-        </p>
-      )}
-
-      {notice && (
+      {notice ? (
         <p role="status" className={styles.notice}>
           {notice}
         </p>
-      )}
+      ) : null}
 
       <CarRefuelHistory
         key={`${organizationId}:${historyRevision}`}

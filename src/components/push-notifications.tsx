@@ -7,6 +7,7 @@ import {
   getPushStatus,
   sendPushTest,
 } from "@/actions/push-notifications";
+import GlassSurface from "./glass-surface";
 import styles from "./push-notifications.module.css";
 
 function keyBuffer(value: string): ArrayBuffer {
@@ -280,7 +281,11 @@ export default function PushNotifications() {
   }
 
   return (
-    <section className={styles.panel} aria-labelledby="push-title">
+    <GlassSurface
+      as="section"
+      className={styles.panel}
+      aria-labelledby="push-title"
+    >
       <h2 id="push-title">Meldingen</h2>
 
       <p className={styles.description}>
@@ -340,6 +345,6 @@ export default function PushNotifications() {
           Meldingen zijn nog niet beschikbaar. Probeer later opnieuw.
         </p>
       )}
-    </section>
+    </GlassSurface>
   );
 }

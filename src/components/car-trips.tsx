@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  useTransition,
-  type FormEvent,
-} from "react";
+import { useId, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createCarTrip, updateCarTrip } from "@/actions/car-trips";
 import { deleteCarTrip } from "@/actions/delete-car-trip";
@@ -20,7 +14,9 @@ import {
 import ActionButton from "./action-button";
 import CarTripHistory from "./car-trip-history";
 import CarTripPayers from "./car-trip-payers";
+import ResponsiveDialog from "./responsive-dialog";
 import styles from "./car-trips.module.css";
+import entryStyles from "./car-entry-form.module.css";
 
 type Driver = {
   userId: string;
@@ -100,8 +96,9 @@ export default function CarTrips({
   historyRevision,
 }: Props) {
   const router = useRouter();
-  const formRef = useRef<HTMLFormElement>(null);
-  const deleteRef = useRef<HTMLDivElement>(null);
+  const id = useId();
+  const formId = `${id}-form`;
+  const dialogId = `${id}-dialog`;
 
   const [showForm, setShowForm] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -116,6 +113,7 @@ export default function CarTrips({
       userId: currentUserId,
     },
   ]);
+
   const [tripDate, setTripDate] = useState(today);
   const [endTime, setEndTime] = useState("");
   const [dateLimit, setDateLimit] = useState(today);
@@ -129,28 +127,6 @@ export default function CarTrips({
 
   const busy = saving || refreshing;
   const interactionOpen = showForm || deletingTrip !== null;
-
-  useEffect(() => {
-    if (showForm) {
-      formRef.current?.scrollIntoView({
-        block: "start",
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "auto"
-          : "smooth",
-      });
-    }
-  }, [showForm]);
-
-  useEffect(() => {
-    if (deletingTrip) {
-      deleteRef.current?.scrollIntoView({
-        block: "start",
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "auto"
-          : "smooth",
-      });
-    }
-  }, [deletingTrip]);
 
   const latestOdometer = latestTrip?.endOdometer ?? startOdometer;
 
@@ -192,6 +168,8 @@ export default function CarTrips({
   }
 
   function openCreateForm() {
+    if (busy || interactionOpen) return;
+
     const current = brusselsMoment();
 
     setEditingTrip(null);
@@ -245,6 +223,8 @@ export default function CarTrips({
   }
 
   function closeForm() {
+    if (busy) return;
+
     setShowForm(false);
     setEditingTrip(null);
     setError("");
@@ -258,6 +238,13 @@ export default function CarTrips({
     setDeletingTrip(trip);
     setError("");
     setNotice("");
+  }
+
+  function closeDeleteForm() {
+    if (busy) return;
+
+    setDeletingTrip(null);
+    setError("");
   }
 
   async function confirmDelete() {
@@ -337,7 +324,11 @@ export default function CarTrips({
 
       if (!result.success) {
         setError(result.error);
-        if (result.refreshRequired) refreshPage();
+
+        if (result.refreshRequired) {
+          refreshPage();
+        }
+
         return;
       }
 
@@ -364,284 +355,325 @@ export default function CarTrips({
           </p>
         </div>
 
-        {!interactionOpen && (
-          <ActionButton
-            icon="plus"
-            onClick={openCreateForm}
-            className={styles.primary}
-            disabled={busy}
-          >
-            Rit toevoegen
-          </ActionButton>
-        )}
+        <ActionButton
+          icon="plus"
+          variant="primary"
+          onClick={openCreateForm}
+          disabled={busy || interactionOpen}
+          aria-haspopup="dialog"
+          aria-expanded={showForm}
+          aria-controls={dialogId}
+        >
+          Rit toevoegen
+        </ActionButton>
       </div>
 
-      {deletingTrip && (
-        <div
-          ref={deleteRef}
-          className={styles.warning}
-          role="region"
-          aria-label="Rit verwijderen"
-        >
-          <div className={styles.wideField}>
-            <h3>Deze rit definitief verwijderen?</h3>
+      {!interactionOpen && error ? (
+        <p role="alert" className={styles.error}>
+          {error}
+        </p>
+      ) : null}
 
-            <p className={styles.description}>
-              <strong>{formatTripPayers(deletingTrip)}</strong>
-              {" · "}
-              {formatTripMoment(deletingTrip)}
-              <br />
-              {numbers.format(deletingTrip.startOdometer)}
-              {" → "}
-              {numbers.format(deletingTrip.endOdometer)}
-              {" km"}
-            </p>
+      <ResponsiveDialog
+        id={dialogId}
+        open={showForm}
+        onClose={closeForm}
+        title={editingTrip ? "Rit bewerken" : "Rit toevoegen"}
+        description="Vul de kilometerstanden in en kies wie de rit betaalt."
+        busy={busy}
+        size="medium"
+        footer={
+          <>
+            <ActionButton
+              icon="close"
+              variant="secondary"
+              disabled={busy}
+              onClick={closeForm}
+            >
+              Annuleren
+            </ActionButton>
 
-            <p className={styles.detail}>
+            <ActionButton
+              type="submit"
+              form={formId}
+              icon="save"
+              variant="primary"
+              loading={saving}
+              disabled={busy}
+            >
+              {saving
+                ? "Opslaan…"
+                : editingTrip
+                  ? "Wijzigingen opslaan"
+                  : "Rit opslaan"}
+            </ActionButton>
+          </>
+        }
+      >
+        {showForm ? (
+          <form
+            id={formId}
+            onSubmit={submit}
+            className={entryStyles.entryForm}
+            aria-label={editingTrip ? "Rit bewerken" : "Rit toevoegen"}
+            aria-busy={busy}
+          >
+            <fieldset disabled={busy} className={styles.fields}>
+              <div className={`${styles.previousTrip} ${entryStyles.context}`}>
+                <p className={styles.contextLabel}>
+                  {editingTrip
+                    ? "Rit bewerken"
+                    : latestTrip
+                      ? "Laatste geregistreerde rit"
+                      : "Startpunt"}
+                </p>
+
+                {referenceTrip ? (
+                  <>
+                    <p className={styles.contextName}>
+                      {formatTripPayers(referenceTrip)}
+
+                      <span>
+                        {" · "}
+                        {formatTripMoment(referenceTrip)}
+                      </span>
+                    </p>
+
+                    <p className={styles.contextDistance}>
+                      {numbers.format(referenceTrip.startOdometer)}
+                      {" → "}
+                      {numbers.format(referenceTrip.endOdometer)}
+                      {" km"}
+                    </p>
+                  </>
+                ) : (
+                  <p className={styles.contextName}>
+                    Volle tank op {formatDate(startDate)}
+                  </p>
+                )}
+
+                {!editingTrip ? (
+                  <div className={styles.contextBottom}>
+                    <p>
+                      Begon jouw rit op{" "}
+                      <strong>{numbers.format(latestOdometer)} km</strong>?
+                    </p>
+
+                    <ActionButton
+                      icon="check"
+                      variant="secondary"
+                      onClick={() => setStart(String(latestOdometer))}
+                    >
+                      Gebruik {numbers.format(latestOdometer)} km
+                    </ActionButton>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor={`${id}-date`}>Datum einde rit</label>
+
+                <input
+                  id={`${id}-date`}
+                  type="date"
+                  min={startDate}
+                  max={dateLimit}
+                  value={tripDate}
+                  onChange={(event) => setTripDate(event.target.value)}
+                  required
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor={`${id}-time`}>Eindtijd</label>
+
+                <input
+                  id={`${id}-time`}
+                  type="time"
+                  step="60"
+                  value={endTime}
+                  onChange={(event) => setEndTime(event.target.value)}
+                  required={!editingTrip || editingTrip.endedAt !== null}
+                />
+
+                {editingTrip?.endedAt === null ? (
+                  <p className={styles.detail}>
+                    Het uur van deze oudere rit is onbekend. Je mag dit leeg
+                    laten.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor={`${id}-start`}>Beginstand van de rit</label>
+
+                <input
+                  id={`${id}-start`}
+                  type="number"
+                  min={startOdometer}
+                  max="2147483647"
+                  step="1"
+                  inputMode="numeric"
+                  value={start}
+                  onChange={(event) => setStart(event.target.value)}
+                  required
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor={`${id}-end`}>Eindstand van de rit</label>
+
+                <input
+                  id={`${id}-end`}
+                  type="number"
+                  min={
+                    startNumber !== null ? startNumber + 1 : startOdometer + 1
+                  }
+                  max="2147483647"
+                  step="1"
+                  inputMode="numeric"
+                  value={end}
+                  onChange={(event) => setEnd(event.target.value)}
+                  required
+                />
+              </div>
+
+              {incomingGap > 0 && startNumber !== null ? (
+                <div className={styles.gapPreview} role="status">
+                  <h3>
+                    Er ontbreekt {numbers.format(incomingGap)} km vóór deze rit
+                  </h3>
+
+                  <p>
+                    Tussen {numbers.format(latestOdometer)}
+                    {" en "}
+                    {numbers.format(startNumber)}
+                    {" km zijn nog geen ritten "}
+                    geregistreerd. Deze kilometers worden niet aan jouw rit
+                    toegevoegd.
+                  </p>
+                </div>
+              ) : null}
+
+              <div className={styles.wideField}>
+                <label htmlFor={`${id}-description`}>
+                  Opmerking · optioneel
+                </label>
+
+                <input
+                  id={`${id}-description`}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  maxLength={500}
+                />
+              </div>
+
+              <div className={styles.wideField}>
+                <CarTripPayers
+                  members={drivers}
+                  currentUserId={currentUserId}
+                  previousPayers={editingTrip ? getTripPayers(editingTrip) : []}
+                  value={payers}
+                  onChange={setPayers}
+                />
+              </div>
+
+              <p
+                className={entryStyles.distance}
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                <span className={entryStyles.distanceLabel}>
+                  Afstand van deze rit
+                </span>
+
+                {distance !== null && distance > 0 ? (
+                  <strong className={entryStyles.distanceValue}>
+                    {numbers.format(distance)} km
+                  </strong>
+                ) : (
+                  <span className={entryStyles.distanceHint}>
+                    Vul beide kilometerstanden in.
+                  </span>
+                )}
+              </p>
+
+              {error ? (
+                <p role="alert" className={styles.error}>
+                  {error}
+                </p>
+              ) : null}
+            </fieldset>
+          </form>
+        ) : null}
+      </ResponsiveDialog>
+
+      <ResponsiveDialog
+        open={deletingTrip !== null}
+        onClose={closeDeleteForm}
+        title="Rit definitief verwijderen?"
+        size="small"
+        busy={busy}
+        footer={
+          <>
+            <ActionButton
+              icon="close"
+              variant="secondary"
+              disabled={busy}
+              onClick={closeDeleteForm}
+            >
+              Annuleren
+            </ActionButton>
+
+            <ActionButton
+              icon="trash"
+              variant="primary"
+              danger
+              loading={saving}
+              disabled={busy}
+              onClick={() => void confirmDelete()}
+            >
+              {saving ? "Verwijderen…" : "Definitief verwijderen"}
+            </ActionButton>
+          </>
+        }
+      >
+        {deletingTrip ? (
+          <div className={entryStyles.deleteContent}>
+            <div className={entryStyles.deleteSummary}>
+              <p className={styles.description}>
+                <strong>{formatTripPayers(deletingTrip)}</strong>
+                <br />
+                {formatTripMoment(deletingTrip)}
+                <br />
+                {numbers.format(deletingTrip.startOdometer)}
+                {" → "}
+                {numbers.format(deletingTrip.endOdometer)}
+                {" km"}
+              </p>
+            </div>
+
+            <p className={entryStyles.deleteExplanation}>
               De kilometerverdeling en afrekening worden opnieuw berekend.
               Ontbrekende kilometers worden daarna apart getoond.
             </p>
 
-            <div className={styles.formActions}>
-              <ActionButton
-                icon="trash"
-                loading={saving}
-                className={styles.primary}
-                disabled={busy}
-                onClick={() => void confirmDelete()}
-              >
-                {saving ? "Verwijderen…" : "Definitief verwijderen"}
-              </ActionButton>
-
-              <ActionButton
-                icon="close"
-                className={styles.secondary}
-                disabled={busy}
-                onClick={() => {
-                  setDeletingTrip(null);
-                  setError("");
-                }}
-              >
-                Annuleren
-              </ActionButton>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!showForm && error && (
-        <p role="alert" className={styles.error}>
-          {error}
-        </p>
-      )}
-
-      {showForm && (
-        <form
-          ref={formRef}
-          onSubmit={submit}
-          className={styles.form}
-          aria-label={editingTrip ? "Rit bewerken" : "Rit toevoegen"}
-        >
-          <fieldset disabled={busy} className={styles.fields}>
-            <div className={styles.previousTrip}>
-              <p className={styles.contextLabel}>
-                {editingTrip
-                  ? "Rit bewerken"
-                  : latestTrip
-                    ? "Laatste geregistreerde rit"
-                    : "Startpunt"}
-              </p>
-
-              {referenceTrip ? (
-                <>
-                  <p className={styles.contextName}>
-                    {formatTripPayers(referenceTrip)}
-                    <span>
-                      {" · "}
-                      {formatTripMoment(referenceTrip)}
-                    </span>
-                  </p>
-
-                  <p className={styles.contextDistance}>
-                    {numbers.format(referenceTrip.startOdometer)}
-                    {" → "}
-                    {numbers.format(referenceTrip.endOdometer)}
-                    {" km"}
-                  </p>
-                </>
-              ) : (
-                <p className={styles.contextName}>
-                  Volle tank op {formatDate(startDate)}
-                </p>
-              )}
-
-              {!editingTrip && (
-                <div className={styles.contextBottom}>
-                  <p>
-                    Begon jouw rit op{" "}
-                    <strong>{numbers.format(latestOdometer)} km</strong>?
-                  </p>
-
-                  <ActionButton
-                    icon="check"
-                    className={styles.secondary}
-                    onClick={() => setStart(String(latestOdometer))}
-                  >
-                    Gebruik {numbers.format(latestOdometer)} km
-                  </ActionButton>
-                </div>
-              )}
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="trip-date">Datum einde rit</label>
-
-              <input
-                id="trip-date"
-                type="date"
-                min={startDate}
-                max={dateLimit}
-                value={tripDate}
-                onChange={(event) => setTripDate(event.target.value)}
-                required
-              />
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="trip-time">Eindtijd</label>
-
-              <input
-                id="trip-time"
-                type="time"
-                step="60"
-                value={endTime}
-                onChange={(event) => setEndTime(event.target.value)}
-                required={!editingTrip || editingTrip.endedAt !== null}
-              />
-
-              {editingTrip?.endedAt === null && (
-                <p className={styles.detail}>
-                  Het uur van deze oudere rit is onbekend. Je mag dit leeg
-                  laten.
-                </p>
-              )}
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="trip-start">Beginstand van de rit</label>
-
-              <input
-                id="trip-start"
-                type="number"
-                min={startOdometer}
-                max="2147483647"
-                step="1"
-                inputMode="numeric"
-                value={start}
-                onChange={(event) => setStart(event.target.value)}
-                required
-              />
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="trip-end">Eindstand van de rit</label>
-
-              <input
-                id="trip-end"
-                type="number"
-                min={startNumber !== null ? startNumber + 1 : startOdometer + 1}
-                max="2147483647"
-                step="1"
-                inputMode="numeric"
-                value={end}
-                onChange={(event) => setEnd(event.target.value)}
-                required
-              />
-            </div>
-
-            {incomingGap > 0 && (
-              <div className={styles.gapPreview} role="status">
-                <h3>
-                  Er ontbreekt {numbers.format(incomingGap)} km vóór deze rit
-                </h3>
-
-                <p>
-                  Tussen {numbers.format(latestOdometer)}
-                  {" en "}
-                  {numbers.format(startNumber!)}
-                  {" km zijn nog geen ritten "}
-                  geregistreerd. Deze kilometers worden niet aan jouw rit
-                  toegevoegd.
-                </p>
-              </div>
-            )}
-
-            <div className={styles.wideField}>
-              <label htmlFor="trip-description">Opmerking · optioneel</label>
-
-              <input
-                id="trip-description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                maxLength={500}
-              />
-            </div>
-
-            <div className={styles.wideField}>
-              <CarTripPayers
-                members={drivers}
-                currentUserId={currentUserId}
-                previousPayers={editingTrip ? getTripPayers(editingTrip) : []}
-                value={payers}
-                onChange={setPayers}
-              />
-            </div>
-
-            <p className={styles.distance} aria-live="polite">
-              {distance !== null && distance > 0
-                ? `Deze rit: ${numbers.format(distance)} km`
-                : "Vul beide kilometerstanden in."}
-            </p>
-
-            {error && (
+            {error ? (
               <p role="alert" className={styles.error}>
                 {error}
               </p>
-            )}
+            ) : null}
+          </div>
+        ) : null}
+      </ResponsiveDialog>
 
-            <div className={styles.formActions}>
-              <ActionButton
-                type="submit"
-                icon="save"
-                loading={saving}
-                className={styles.primary}
-              >
-                {saving
-                  ? "Opslaan…"
-                  : editingTrip
-                    ? "Wijzigingen opslaan"
-                    : "Rit opslaan"}
-              </ActionButton>
-
-              <ActionButton
-                icon="close"
-                className={styles.secondary}
-                onClick={closeForm}
-              >
-                Annuleren
-              </ActionButton>
-            </div>
-          </fieldset>
-        </form>
-      )}
-
-      {notice && (
+      {notice ? (
         <p role="status" className={styles.notice}>
           {notice}
         </p>
-      )}
+      ) : null}
 
-      {gaps.length > 0 && (
+      {gaps.length > 0 ? (
         <div className={styles.warning}>
           <h3>
             {numbers.format(missingDistance)}
@@ -662,7 +694,7 @@ export default function CarTrips({
             </ul>
           </details>
         </div>
-      )}
+      ) : null}
 
       <CarTripHistory
         key={`${organizationId}:${historyRevision}`}

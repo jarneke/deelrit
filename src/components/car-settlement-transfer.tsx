@@ -8,6 +8,7 @@ import type {
   TransferDetailPage,
 } from "@/lib/car-settlement-view-types";
 import ActionButton from "./action-button";
+import UserAvatar from "./user-avatar";
 import styles from "./car-settlement.module.css";
 
 type Props = {
@@ -21,6 +22,7 @@ type Props = {
 };
 
 const numbers = new Intl.NumberFormat("nl-BE");
+
 const euros = new Intl.NumberFormat("nl-BE", {
   style: "currency",
   currency: "EUR",
@@ -37,18 +39,6 @@ function formatDate(value: string) {
   }).format(new Date(`${value}T00:00:00Z`));
 }
 
-function initials(name: string) {
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part.charAt(0))
-      .join("")
-      .toUpperCase() || "?"
-  );
-}
-
 function SourceList({ sources }: { sources: PaymentSource[] }) {
   if (sources.length === 0) {
     return <p className={styles.detail}>Geen bijdragen op deze pagina.</p>;
@@ -60,6 +50,7 @@ function SourceList({ sources }: { sources: PaymentSource[] }) {
         <li key={source.periodId} className={styles.source}>
           <div>
             <p>Tankbeurt van {formatDate(source.tankDate)}</p>
+
             <p className={styles.detail}>
               {numbers.format(source.distance)} km binnen{" "}
               {numbers.format(source.startOdometer)}
@@ -183,7 +174,10 @@ export default function CarSettlementTransfer({
         <span className={styles.transferIdentity}>
           {!group && (
             <span className={styles.avatar} aria-hidden="true">
-              {initials(otherName)}
+              <UserAvatar
+                name={otherName}
+                userId={outgoing ? toUserId : fromUserId}
+              />
             </span>
           )}
 

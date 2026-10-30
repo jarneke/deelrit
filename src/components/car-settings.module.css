@@ -6,114 +6,84 @@
 }
 
 .settings {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   flex-shrink: 0;
+  gap: 10px;
+  max-width: 100%;
 }
 
-.trigger {
-  display: inline-flex;
+.notice {
+  max-width: 40ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.photoField {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.photoField h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.photoPreview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+}
+
+.defaultPreview {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
-  padding: 7px 11px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.trigger:hover {
-  border-color: var(--accent-border);
-  background: var(--accent-soft-strong);
-  color: var(--accent-text);
-}
-
-.dialog {
-  box-sizing: border-box;
-  width: min(420px, calc(100vw - 32px));
-  max-height: calc(100dvh - 48px);
-  margin: auto;
-  padding: 24px;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: var(--surface);
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 20px;
   color: var(--text);
-  box-shadow: var(--shadow-dialog);
-  overscroll-behavior: contain;
+  text-align: center;
 }
 
-.dialog::backdrop {
-  background: var(--overlay);
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.header h2 {
-  margin: 0;
-  font-size: 21px;
+.defaultPreview > span {
+  font-size: 17px;
   font-weight: 600;
-  letter-spacing: -0.5px;
 }
 
-.close {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 0;
-  border-radius: 9px;
-  background: var(--surface-subtle);
+.defaultPreview p {
+  margin: 0;
   color: var(--muted);
-  font: inherit;
-  font-size: 25px;
-  cursor: pointer;
-}
-
-.close:hover:not(:disabled) {
-  background: var(--accent-soft-strong);
-  color: var(--text);
-}
-
-.close:disabled {
-  opacity: 0.5;
-  cursor: wait;
-}
-
-.description {
-  margin: 10px 0 24px;
-  color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.6;
 }
 
-.dialog input {
-  box-sizing: border-box;
-}
-
-.actions {
+.photoActions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 4px;
+  gap: 8px;
 }
 
-.trigger:focus-visible,
-.close:focus-visible {
-  outline: 3px solid var(--accent-text);
-  outline-offset: 3px;
+.photoHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
 }
 
 .srOnly {

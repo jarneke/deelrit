@@ -15,7 +15,12 @@ export type IconName =
   | "share"
   | "user"
   | "shield"
-  | "logout";
+  | "logout"
+  | "car"
+  | "calendar"
+  | "wallet"
+  | "users"
+  | "gauge";
 
 const shapes: Record<IconName, ReactNode> = {
   plus: <path d="M12 5v14M5 12h14" />,
@@ -72,6 +77,36 @@ const shapes: Record<IconName, ReactNode> = {
     <>
       <path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z" />
       <path d="m8 12 3 3 5-6" />
+    </>
+  ),
+  car: (
+    <>
+      <path d="m5 7 2-4h10l2 4 2 3v8H3v-8Z" />
+      <path d="M3 10h18M6 14h2M16 14h2M6 18v3M18 18v3" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="3" />
+      <path d="M7 3v4M17 3v4M3 11h18M7 15h2M15 15h2" />
+    </>
+  ),
+  wallet: (
+    <>
+      <rect x="3" y="6" width="18" height="15" rx="3" />
+      <path d="M17 6V3H6a3 3 0 0 0-3 3M21 12h-5v4h5" />
+    </>
+  ),
+  users: (
+    <>
+      <circle cx="9" cy="7" r="3" />
+      <path d="M3 21v-2a6 6 0 0 1 12 0v2M16 4a3 3 0 0 1 0 6M21 21v-2a6 6 0 0 0-4-5.65" />
+    </>
+  ),
+  gauge: (
+    <>
+      <path d="M5 19a9 9 0 1 1 14 0M12 4v2M5 9l2 1M19 9l-2 1M12 15l4-5" />
+      <circle cx="12" cy="15" r="1" />
     </>
   ),
   logout: <path d="M9 3H4v18h5M10 12h11m-4-4 4 4-4 4" />,

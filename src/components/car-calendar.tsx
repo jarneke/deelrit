@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useState, type FormEvent } from "react";
 import { getCarReservationWeek } from "@/actions/car-reservation-calendar";
 import {
   cancelCarReservation,
@@ -11,7 +11,8 @@ import type {
   CarReservation,
   ReservationWeek,
 } from "@/lib/car-reservation-types";
-import ActionButton from "./action-button";
+import ActionButton, { ActionGroup } from "./action-button";
+import ResponsiveDialog from "./responsive-dialog";
 import styles from "./car-calendar.module.css";
 
 type Props = {
@@ -134,7 +135,6 @@ export default function CarCalendar({
   isOwner,
   today,
 }: Props) {
-  const [open, setOpen] = useState(false);
   const [week, setWeek] = useState(() => mondayOf(today));
   const [data, setData] = useState<ReservationWeek | null>(null);
   const [loading, setLoading] = useState(true);
@@ -146,9 +146,10 @@ export default function CarCalendar({
     date: string;
   } | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
+  const dateId = useId();
+  const [jumpDate, setJumpDate] = useState(today);
 
+  useEffect(() => {
     let cancelled = false;
 
     async function load() {
@@ -178,7 +179,7 @@ export default function CarCalendar({
     return () => {
       cancelled = true;
     };
-  }, [open, organizationId, week, retry]);
+  }, [organizationId, week, retry]);
 
   function reload() {
     setLoading(true);
@@ -188,32 +189,48 @@ export default function CarCalendar({
 
   function changeWeek(next: string) {
     if (next === week) return;
+
     setLoading(true);
     setError("");
+    setData(null);
     setWeek(next);
+  }
+
+  function reserve(date: string) {
+    setNotice("");
+    setModal({ reservation: null, date });
   }
 
   const days = Array.from({ length: 7 }, (_, index) => shiftDate(week, index));
 
+  const items = data?.items ?? [];
+  const ownCount = items.filter(
+    (item) => item.reservedBy === currentUserId,
+  ).length;
+
+  const month = new Intl.DateTimeFormat("nl-BE", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${week}T12:00:00.000Z`));
+
   return (
     <section className={styles.panel} aria-label="Autoagenda">
-      <div className={styles.toolbar}>
-        <div>
-          <h2>Agenda</h2>
-          <p className={styles.subtitle}>Plan wanneer je de auto nodig hebt.</p>
+      <header className={styles.header}>
+        <div className={styles.heading}>
+          <span className={styles.eyebrow}>Samen onderweg</span>
+          <h2>Planning</h2>
+          <p>Een duidelijk overzicht van wie de auto wanneer nodig heeft.</p>
         </div>
 
         <ActionButton
           icon="plus"
-          className={styles.primary}
-          onClick={() => {
-            setNotice("");
-            setModal({ reservation: null, date: today });
-          }}
+          variant="primary"
+          onClick={() => reserve(today)}
         >
           Reserveren
         </ActionButton>
-      </div>
+      </header>
 
       {notice && (
         <p role="status" className={styles.notice}>
@@ -221,144 +238,225 @@ export default function CarCalendar({
         </p>
       )}
 
-      <details
-        className={styles.calendarFold}
-        open={open}
-        onToggle={(event) => {
-          const nextOpen = event.currentTarget.open;
+      <div className={styles.calendar}>
+        <div className={styles.toolbar}>
+          <div className={styles.period}>
+            <h3>{month}</h3>
+            <p>
+              {dateLabel(week)} – {dateLabel(shiftDate(week, 6))}
+            </p>
+          </div>
 
-          if (nextOpen !== open) {
-            setLoading(true);
-            setError("");
-            setOpen(nextOpen);
-          }
-        }}
-      >
-        <summary className={styles.calendarSummary}>
-          <span>Weekagenda</span>
-          <span className={styles.summaryDate}>
-            {dateLabel(week)} – {dateLabel(shiftDate(week, 6))}
-          </span>
-        </summary>
+          <nav className={styles.controls} aria-label="Kalenderweek">
+            <ActionButton
+              icon="arrow-left"
+              iconOnly
+              label="Vorige week"
+              variant="glass"
+              disabled={week <= "1900-01-08"}
+              onClick={() => changeWeek(shiftDate(week, -7))}
+            />
 
-        {open && (
-          <>
-            <nav className={styles.navigation} aria-label="Kalenderweek">
-              <div className={styles.weekControls}>
-                <ActionButton
-                  icon="arrow-left"
-                  iconOnly
-                  label="Vorige week"
-                  className={styles.secondary}
-                  disabled={week <= "1900-01-08"}
-                  onClick={() => changeWeek(shiftDate(week, -7))}
-                />
+            <ActionButton
+              icon="calendar"
+              variant="secondary"
+              onClick={() => changeWeek(mondayOf(today))}
+            >
+              Deze week
+            </ActionButton>
 
-                <span className={styles.weekLabel}>
-                  {dateLabel(week)} – {dateLabel(shiftDate(week, 6))}
-                  {" · "}
-                  {week.slice(0, 4)}
-                </span>
+            <ActionButton
+              icon="arrow-right"
+              iconOnly
+              label="Volgende week"
+              variant="glass"
+              disabled={week >= "9998-12-21"}
+              onClick={() => changeWeek(shiftDate(week, 7))}
+            />
+          </nav>
 
-                <ActionButton
-                  icon="arrow-right"
-                  iconOnly
-                  label="Volgende week"
-                  className={styles.secondary}
-                  disabled={week >= "9998-12-21"}
-                  onClick={() => changeWeek(shiftDate(week, 7))}
-                />
-              </div>
+          <form
+            className={styles.dateJump}
+            onSubmit={(event) => {
+              event.preventDefault();
 
-              <button
-                type="button"
-                className={styles.todayButton}
-                onClick={() => changeWeek(mondayOf(today))}
-              >
-                Deze week
-              </button>
-            </nav>
+              if (
+                !/^\d{4}-\d{2}-\d{2}$/.test(jumpDate) ||
+                jumpDate < "1900-01-01" ||
+                jumpDate > "9998-12-31"
+              ) {
+                return;
+              }
 
-            {loading ? (
-              <p role="status" className={styles.message}>
-                De reserveringen voor deze week laden…
-              </p>
-            ) : error ? (
-              <div className={styles.message}>
-                <p role="alert" className={styles.error}>
-                  {error}
-                </p>
-                <ActionButton
-                  icon="undo"
-                  className={styles.secondary}
-                  onClick={reload}
+              const date = new Date(`${jumpDate}T12:00:00.000Z`);
+
+              if (
+                Number.isFinite(date.getTime()) &&
+                date.toISOString().slice(0, 10) === jumpDate
+              ) {
+                changeWeek(mondayOf(jumpDate));
+              }
+            }}
+          >
+            <label htmlFor={dateId}>Ga naar datum</label>
+
+            <input
+              id={dateId}
+              type="date"
+              min="1900-01-01"
+              max="9998-12-31"
+              value={jumpDate}
+              onChange={(event) => setJumpDate(event.target.value)}
+              required
+            />
+
+            <ActionButton
+              type="submit"
+              icon="arrow-right"
+              iconOnly
+              label="Ga naar gekozen datum"
+              variant="glass"
+            />
+          </form>
+        </div>
+
+        <div className={styles.legend}>
+          <div className={styles.legendItems}>
+            <span>
+              <i className={styles.ownDot} aria-hidden="true" />
+              Jouw reservering
+            </span>
+
+            <span>
+              <i className={styles.otherDot} aria-hidden="true" />
+              Andere bestuurder
+            </span>
+          </div>
+
+          {!loading && !error && (
+            <span>
+              {items.length} reserveringen · {ownCount} van jou
+            </span>
+          )}
+        </div>
+
+        {loading ? (
+          <div className={styles.loading} role="status">
+            <span>Weekagenda laden…</span>
+
+            <div className={styles.skeletonGrid} aria-hidden="true">
+              {days.map((day) => (
+                <div key={day} />
+              ))}
+            </div>
+          </div>
+        ) : error ? (
+          <div className={styles.loadError}>
+            <p role="alert" className={styles.error}>
+              {error}
+            </p>
+
+            <ActionButton icon="undo" variant="secondary" onClick={reload}>
+              Opnieuw proberen
+            </ActionButton>
+          </div>
+        ) : (
+          <div className={styles.week}>
+            {days.map((day) => {
+              const bookings = items.filter((item) => appearsOnDay(item, day));
+
+              const isToday = day === today;
+
+              return (
+                <section
+                  key={day}
+                  className={`${styles.day} ${
+                    isToday ? styles.currentDay : ""
+                  }`}
+                  aria-label={new Intl.DateTimeFormat("nl-BE", {
+                    dateStyle: "full",
+                    timeZone: "UTC",
+                  }).format(new Date(`${day}T12:00:00.000Z`))}
                 >
-                  Opnieuw proberen
-                </ActionButton>
-              </div>
-            ) : (
-              <div className={styles.week}>
-                {days.map((day) => {
-                  const items =
-                    data?.items.filter((item) => appearsOnDay(item, day)) ?? [];
+                  <div className={styles.dayHeader}>
+                    <h4 className={styles.dayHeading}>
+                      <span>
+                        {new Intl.DateTimeFormat("nl-BE", {
+                          weekday: "short",
+                          timeZone: "UTC",
+                        }).format(new Date(`${day}T12:00:00.000Z`))}
+                      </span>
 
-                  return (
-                    <section
-                      key={day}
-                      className={`${styles.day} ${day === today ? styles.currentDay : ""}`}
-                      aria-label={day}
+                      <strong aria-current={isToday ? "date" : undefined}>
+                        {Number(day.slice(8))}
+                      </strong>
+                    </h4>
+
+                    {isToday && <span className={styles.today}>Vandaag</span>}
+                  </div>
+
+                  <div className={styles.bookings}>
+                    {bookings.length === 0 ? (
+                      <p className={styles.empty}>Geen reserveringen</p>
+                    ) : (
+                      bookings.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`${styles.booking} ${
+                            item.reservedBy === currentUserId
+                              ? styles.ownBooking
+                              : ""
+                          }`}
+                          onClick={() => {
+                            setNotice("");
+                            setModal({ reservation: item, date: day });
+                          }}
+                        >
+                          <span className={styles.bookingTime}>
+                            {dayTime(item.startsAt, day, false)}
+                            {" – "}
+                            {dayTime(item.endsAt, day, true)}
+                          </span>
+
+                          <strong>{item.reservedByName}</strong>
+
+                          {item.description && (
+                            <span className={styles.preview}>
+                              {item.description}
+                            </span>
+                          )}
+
+                          {item.reservedBy === currentUserId && (
+                            <span className={styles.mine}>Van jou</span>
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+
+                  {day >= today && (
+                    <button
+                      type="button"
+                      className={styles.addDay}
+                      aria-label={`Reserveren op ${dateLabel(day)}`}
+                      onClick={() => reserve(day)}
                     >
-                      <h3 className={styles.dayHeading}>
-                        <span>
-                          {new Intl.DateTimeFormat("nl-BE", {
-                            weekday: "short",
-                            timeZone: "UTC",
-                          }).format(new Date(`${day}T12:00:00.000Z`))}
-                        </span>
-                        <span>{dateLabel(day)}</span>
-                      </h3>
-
-                      <div className={styles.bookings}>
-                        {items.length === 0 ? (
-                          <p className={styles.empty}>Geen reserveringen</p>
-                        ) : (
-                          items.map((item) => (
-                            <button
-                              key={item.id}
-                              type="button"
-                              className={`${styles.booking} ${
-                                item.reservedBy === currentUserId
-                                  ? styles.ownBooking
-                                  : ""
-                              }`}
-                              onClick={() => {
-                                setNotice("");
-                                setModal({ reservation: item, date: day });
-                              }}
-                            >
-                              <strong>{item.reservedByName}</strong>
-                              <span>
-                                {dayTime(item.startsAt, day, false)}
-                                {" – "}
-                                {dayTime(item.endsAt, day, true)}
-                              </span>
-                              {item.description && (
-                                <span className={styles.preview}>
-                                  {item.description}
-                                </span>
-                              )}
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    </section>
-                  );
-                })}
-              </div>
-            )}
-          </>
+                      <span aria-hidden="true">+</span>
+                      Reserveren
+                    </button>
+                  )}
+                </section>
+              );
+            })}
+          </div>
         )}
-      </details>
+
+        <p className={styles.hint}>
+          Tik op een reservering voor de details. Alle tijden zijn Belgische
+          tijd.
+        </p>
+      </div>
 
       {modal && (
         <ReservationModal
@@ -372,7 +470,7 @@ export default function CarCalendar({
           onSaved={(message, date) => {
             setModal(null);
             setNotice(message);
-            setOpen(true);
+
             const targetWeek = mondayOf(date);
 
             if (targetWeek !== week) {
@@ -406,8 +504,7 @@ function ReservationModal({
   onRefresh: () => void;
   onSaved: (message: string, date: string) => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
+  const formId = useId();
   const startId = useId();
   const endId = useId();
   const descriptionId = useId();
@@ -415,12 +512,15 @@ function ReservationModal({
   const [start, setStart] = useState(
     reservation ? localInput(reservation.startsAt) : `${date}T09:00`,
   );
+
   const [end, setEnd] = useState(
     reservation ? localInput(reservation.endsAt) : `${date}T10:00`,
   );
+
   const [description, setDescription] = useState(
     reservation?.description ?? "",
   );
+
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -439,15 +539,6 @@ function ReservationModal({
     new Date(reservation.endsAt).getTime() > now;
 
   useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-
-    return () => {
-      element?.close();
-    };
-  }, []);
-
-  useEffect(() => {
     const interval = window.setInterval(() => {
       setNow(Date.now());
     }, 1000);
@@ -459,6 +550,7 @@ function ReservationModal({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
     if (busy || !canEdit) return;
 
     setError("");
@@ -547,38 +639,46 @@ function ReservationModal({
   }
 
   return (
-    <dialog
-      ref={dialog}
-      className={styles.dialog}
-      aria-labelledby={titleId}
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onClose();
-      }}
-    >
-      <div className={styles.toolbar}>
-        <h2 id={titleId}>{reservation ? "Reservering" : "Auto reserveren"}</h2>
-
-        <ActionButton
-          icon="close"
-          iconOnly
-          label="Sluiten"
-          className={styles.secondary}
-          disabled={busy}
-          onClick={onClose}
-        />
-      </div>
-
-      <p className={styles.subtitle}>
-        {reservation
+    <ResponsiveDialog
+      open
+      onClose={onClose}
+      busy={busy}
+      size="medium"
+      title={reservation ? "Reservering" : "Auto reserveren"}
+      description={`${
+        reservation
           ? `Gereserveerd door ${reservation.reservedByName}.`
-          : "Je reserveert de auto voor jezelf."}{" "}
-        Alle tijden zijn Belgische tijd.
-      </p>
+          : "Je reserveert de auto voor jezelf."
+      } Alle tijden zijn Belgische tijd.`}
+      footer={
+        <ActionGroup>
+          <ActionButton
+            icon="close"
+            variant="secondary"
+            disabled={busy}
+            onClick={onClose}
+          >
+            Sluiten
+          </ActionButton>
 
+          {canEdit && (
+            <ActionButton
+              type="submit"
+              form={formId}
+              icon="save"
+              variant="primary"
+              loading={busy}
+              disabled={confirmCancel}
+            >
+              {reservation ? "Wijzigingen opslaan" : "Reserveren"}
+            </ActionButton>
+          )}
+        </ActionGroup>
+      }
+    >
       {canEdit ? (
-        <form onSubmit={submit} className={styles.form}>
-          <fieldset className={styles.fields} disabled={busy}>
+        <form id={formId} onSubmit={submit}>
+          <fieldset className={styles.fields} disabled={busy || confirmCancel}>
             <div className={styles.field}>
               <label htmlFor={startId}>Van</label>
               <input
@@ -610,26 +710,27 @@ function ReservationModal({
                 maxLength={500}
                 rows={3}
               />
-            </div>
 
-            <ActionButton
-              type="submit"
-              icon="save"
-              loading={busy}
-              className={styles.primary}
-            >
-              {reservation ? "Wijzigingen opslaan" : "Reserveren"}
-            </ActionButton>
+              <span className={styles.fieldHint}>
+                {description.length}/500 tekens
+              </span>
+            </div>
           </fieldset>
         </form>
       ) : reservation ? (
         <div className={styles.details}>
-          <p>
-            <strong>Van:</strong> {momentLabel(reservation.startsAt)}
-          </p>
-          <p>
-            <strong>Tot:</strong> {momentLabel(reservation.endsAt)}
-          </p>
+          <dl>
+            <div>
+              <dt>Van</dt>
+              <dd>{momentLabel(reservation.startsAt)}</dd>
+            </div>
+
+            <div>
+              <dt>Tot</dt>
+              <dd>{momentLabel(reservation.endsAt)}</dd>
+            </div>
+          </dl>
+
           {reservation.description && <p>{reservation.description}</p>}
         </div>
       ) : null}
@@ -645,38 +746,41 @@ function ReservationModal({
           {confirmCancel ? (
             <>
               <p>Wil je deze reservering annuleren?</p>
-              <div className={styles.weekControls}>
+
+              <ActionGroup>
                 <ActionButton
-                  icon="trash"
-                  danger
-                  loading={busy}
-                  className={styles.secondary}
-                  onClick={cancel}
-                >
-                  Ja, annuleren
-                </ActionButton>
-                <button
-                  type="button"
-                  className={styles.todayButton}
+                  icon="undo"
+                  variant="secondary"
                   disabled={busy}
                   onClick={() => setConfirmCancel(false)}
                 >
                   Behouden
-                </button>
-              </div>
+                </ActionButton>
+
+                <ActionButton
+                  icon="trash"
+                  danger
+                  variant="primary"
+                  loading={busy}
+                  onClick={cancel}
+                >
+                  Ja, annuleren
+                </ActionButton>
+              </ActionGroup>
             </>
           ) : (
-            <button
-              type="button"
-              className={styles.cancelButton}
+            <ActionButton
+              icon="trash"
+              danger
+              variant="ghost"
               disabled={busy}
               onClick={() => setConfirmCancel(true)}
             >
               Reservering annuleren
-            </button>
+            </ActionButton>
           )}
         </div>
       )}
-    </dialog>
+    </ResponsiveDialog>
   );
 }

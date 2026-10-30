@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { manageGroupMember } from "@/actions/group-members";
-import ActionButton from "./action-button";
+import ActionButton, { ActionGroup } from "./action-button";
+import ResponsiveDialog from "./responsive-dialog";
+import UserAvatar from "./user-avatar";
+import GlassSurface from "./glass-surface";
 import styles from "./group-members.module.css";
 
 type Member = {
@@ -11,6 +14,7 @@ type Member = {
   userId: string;
   name: string;
   role: string;
+  photoSource?: string | null;
 };
 
 type Props = {
@@ -28,9 +32,11 @@ function isOwner(role: string) {
 
 function roleLabel(role: string) {
   if (isOwner(role)) return "Eigenaar";
+
   if (role.split(",").some((value) => value.trim() === "admin")) {
     return "Beheerder";
   }
+
   return "Lid";
 }
 
@@ -48,11 +54,13 @@ export default function GroupMembers({
   const currentMember = members.find(
     (member) => member.userId === currentUserId,
   );
+
   const canManage = Boolean(currentMember && isOwner(currentMember.role));
   const ownerCount = members.filter((member) => isOwner(member.role)).length;
 
   function select(member: Member, action: Action) {
     if (busy) return;
+
     setSelection({ member, action });
     setError("");
     setNotice("");
@@ -83,6 +91,7 @@ export default function GroupMembers({
       }
 
       const name = selection.member.name;
+
       setNotice(
         selection.action === "promote"
           ? `${name} is nu co-eigenaar.`
@@ -90,6 +99,7 @@ export default function GroupMembers({
             ? `${name} is nu lid.`
             : `${name} is uit de groep verwijderd.`,
       );
+
       setSelection(null);
       router.refresh();
     } catch {
@@ -103,6 +113,7 @@ export default function GroupMembers({
     if (!selection) return "";
     if (selection.action === "promote") return "Co-eigenaar maken?";
     if (selection.action === "demote") return "Terugzetten naar lid?";
+
     return selection.member.userId === currentUserId
       ? "Deze groep verlaten?"
       : "Lid verwijderen?";
@@ -110,6 +121,7 @@ export default function GroupMembers({
 
   function confirmationDescription() {
     if (!selection) return "";
+
     const name = selection.member.name;
 
     if (selection.action === "promote") {
@@ -126,12 +138,13 @@ export default function GroupMembers({
   }
 
   return (
-    <section className={styles.panel}>
+    <GlassSurface as="section" className={styles.panel}>
       <div className={styles.header}>
         <h2>Wie deelt deze auto?</h2>
-        <span className={styles.badge}>
+
+        <GlassSurface className={styles.badge}>
           {members.length === 1 ? "1 lid" : `${members.length} leden`}
-        </span>
+        </GlassSurface>
       </div>
 
       <ul className={styles.list}>
@@ -141,98 +154,110 @@ export default function GroupMembers({
           const self = member.userId === currentUserId;
 
           return (
-            <li key={member.id} className={styles.member}>
-              <div className={styles.identity}>
-                <span className={styles.avatar} aria-hidden="true">
-                  {member.name.trim().charAt(0).toUpperCase() || "?"}
-                </span>
+            <li key={member.id}>
+              <GlassSurface as="article" className={styles.member}>
+                <div className={styles.identity}>
+                  <span className={styles.avatar} aria-hidden="true">
+                    <UserAvatar
+                      name={member.name}
+                      source={member.photoSource}
+                    />
+                  </span>
 
-                <div className={styles.memberInfo}>
-                  <p className={styles.name}>
-                    {member.name}
-                    {self ? " · jij" : ""}
-                  </p>
-                  <p className={styles.role}>
-                    {roleLabel(member.role)}
-                    {onlyOwner ? " · enige eigenaar" : ""}
-                  </p>
+                  <div className={styles.memberInfo}>
+                    <p className={styles.name}>
+                      {member.name}
+                      {self ? " · jij" : ""}
+                    </p>
+
+                    <p className={styles.role}>
+                      {roleLabel(member.role)}
+                      {onlyOwner ? " · enige eigenaar" : ""}
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              {canManage && !onlyOwner && (
-                <div className={styles.actions}>
-                  <ActionButton
-                    icon={owner ? "user" : "shield"}
-                    className={styles.secondary}
-                    disabled={busy}
-                    onClick={() => select(member, owner ? "demote" : "promote")}
-                    aria-label={
-                      owner
-                        ? `${member.name} terugzetten naar lid`
-                        : `${member.name} co-eigenaar maken`
-                    }
-                  >
-                    {owner ? "Maak lid" : "Maak co-eigenaar"}
-                  </ActionButton>
+                {canManage && !onlyOwner && (
+                  <div className={styles.actions}>
+                    <ActionButton
+                      icon={owner ? "user" : "shield"}
+                      variant="glass"
+                      disabled={busy}
+                      onClick={() =>
+                        select(member, owner ? "demote" : "promote")
+                      }
+                      aria-label={
+                        owner
+                          ? `${member.name} terugzetten naar lid`
+                          : `${member.name} co-eigenaar maken`
+                      }
+                    >
+                      {owner ? "Maak lid" : "Maak co-eigenaar"}
+                    </ActionButton>
 
-                  <ActionButton
-                    icon={self ? "logout" : "trash"}
-                    iconOnly
-                    danger
-                    className={styles.remove}
-                    disabled={busy}
-                    onClick={() => select(member, "remove")}
-                    label={
-                      self ? "Groep verlaten" : `${member.name} verwijderen`
-                    }
-                  />
-                </div>
-              )}
+                    <ActionButton
+                      icon={self ? "logout" : "trash"}
+                      iconOnly
+                      danger
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => select(member, "remove")}
+                      label={
+                        self ? "Groep verlaten" : `${member.name} verwijderen`
+                      }
+                    />
+                  </div>
+                )}
+              </GlassSurface>
             </li>
           );
         })}
       </ul>
 
       {selection && (
-        <div
-          className={styles.confirmation}
-          role="region"
-          aria-labelledby="member-confirmation-title"
+        <ResponsiveDialog
+          open
+          onClose={() => {
+            if (busy) return;
+            setSelection(null);
+            setError("");
+          }}
+          title={confirmationTitle()}
+          description={confirmationDescription()}
+          busy={busy}
+          size="small"
+          footer={
+            <ActionGroup>
+              <ActionButton
+                icon="close"
+                variant="secondary"
+                disabled={busy}
+                onClick={() => {
+                  setSelection(null);
+                  setError("");
+                }}
+              >
+                Annuleren
+              </ActionButton>
+
+              <ActionButton
+                icon={selection.action === "remove" ? "trash" : "check"}
+                variant="primary"
+                danger={selection.action === "remove"}
+                loading={busy}
+                onClick={confirm}
+              >
+                Bevestigen
+              </ActionButton>
+            </ActionGroup>
+          }
         >
-          <h3 id="member-confirmation-title">{confirmationTitle()}</h3>
-          <p>{confirmationDescription()}</p>
-
-          <div className={styles.actions}>
-            <ActionButton
-              icon={selection.action === "remove" ? "trash" : "check"}
-              loading={busy}
-              className={
-                selection.action === "remove" ? styles.danger : styles.primary
-              }
-              onClick={confirm}
-            >
-              {busy ? "Opslaan…" : "Bevestigen"}
-            </ActionButton>
-
-            <ActionButton
-              icon="close"
-              className={styles.secondary}
-              disabled={busy}
-              onClick={() => {
-                setSelection(null);
-                setError("");
-              }}
-            >
-              Annuleren
-            </ActionButton>
-          </div>
-        </div>
-      )}
-
-      {error && (
-        <p role="alert" className={styles.error}>
-          {error}
-        </p>
+          {error && (
+            <p role="alert" className={styles.error}>
+              {error}
+            </p>
+          )}
+        </ResponsiveDialog>
       )}
 
       {notice && (
@@ -240,6 +265,6 @@ export default function GroupMembers({
           {notice}
         </p>
       )}
-    </section>
+    </GlassSurface>
   );
 }

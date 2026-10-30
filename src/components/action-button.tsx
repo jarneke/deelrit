@@ -2,12 +2,16 @@
 
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import AppIcon, { type IconName } from "./app-icon";
+import { GlassButton } from "./glass-surface";
 import styles from "./action-button.module.css";
+
+type ButtonVariant = "primary" | "secondary" | "glass" | "ghost";
 
 type BaseProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
   icon: IconName;
   loading?: boolean;
   danger?: boolean;
+  variant?: ButtonVariant;
 };
 
 type Props = BaseProps &
@@ -31,6 +35,7 @@ export default function ActionButton({
   children,
   loading = false,
   danger = false,
+  variant,
   className,
   disabled,
   title,
@@ -39,31 +44,41 @@ export default function ActionButton({
 }: Props) {
   const classes = [
     styles.button,
-    className,
+    variant && styles.styled,
+    variant && styles[variant],
     iconOnly && styles.iconOnly,
     danger && styles.danger,
+    className,
   ]
     .filter(Boolean)
     .join(" ");
 
-  return (
-    <button
-      {...props}
-      type={type}
-      className={classes}
-      disabled={disabled || loading}
-      aria-label={iconOnly ? label : props["aria-label"]}
-      aria-busy={loading ? true : props["aria-busy"]}
-      title={iconOnly ? label : title}
-    >
+  const buttonProps: ButtonHTMLAttributes<HTMLButtonElement> = {
+    ...props,
+    type,
+    className: classes,
+    disabled: disabled || loading,
+    "aria-label": iconOnly ? label : props["aria-label"],
+    "aria-busy": loading ? true : props["aria-busy"],
+    title: iconOnly ? label : title,
+  };
+
+  const content = (
+    <>
       <AppIcon
         name={loading ? "loader" : icon}
         className={loading ? styles.spinning : undefined}
       />
 
       {!iconOnly && children}
-    </button>
+    </>
   );
+
+  if (variant === "glass") {
+    return <GlassButton {...buttonProps}>{content}</GlassButton>;
+  }
+
+  return <button {...buttonProps}>{content}</button>;
 }
 
 export function ActionGroup({ children }: { children: ReactNode }) {

@@ -1,25 +1,32 @@
 .panel,
 .summary {
   margin-top: 28px;
-  padding: 24px;
-  border-radius: 16px;
-}
-
-.panel {
-  border: 1px solid var(--border);
-  background: var(--surface);
+  padding: 28px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-sheen), var(--glass-bg);
+  color: var(--text);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    var(--shadow-card);
+  -webkit-backdrop-filter: blur(var(--glass-blur))
+    saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
 }
 
 .panel h2 {
   margin: 0;
-  font-size: 19px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
 }
 
 .description {
+  max-width: 58ch;
   margin: 12px 0 0;
   color: var(--muted);
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.8;
 }
 
 .fields {
@@ -35,48 +42,55 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
 }
 
 .field label {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .field input {
+  box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  padding: 13px;
+  min-height: 50px;
+  padding: 13px 14px;
   border: 1px solid var(--input-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text);
   font: inherit;
   font-size: 16px;
+  line-height: 1.5;
 }
 
 .primary {
   grid-column: 1 / -1;
   justify-self: start;
-  min-height: 44px;
+  min-height: 46px;
   padding: 12px 18px;
-  border: 0;
-  border-radius: 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--accent-on);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 16%);
   font: inherit;
   font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-standard);
 }
 
 .primary:hover:not(:disabled) {
   background: var(--accent-hover);
 }
 
-.fields:disabled .primary {
-  opacity: 0.6;
-  cursor: wait;
+.fields:disabled .primary,
+.fields:disabled input {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .primary:focus-visible,
@@ -88,26 +102,28 @@
 .error {
   grid-column: 1 / -1;
   margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
   color: var(--danger);
   font-size: 13px;
-  line-height: 1.6;
-}
-
-.summary {
-  background: var(--hero-bg);
-  color: var(--hero-text);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 
 .eyebrow {
   margin: 0;
-  color: var(--hero-muted);
+  color: var(--muted);
   font-size: 12px;
 }
 
 .odometer {
   margin: 12px 0;
-  font-size: 34px;
+  font-size: 36px;
+  font-weight: 600;
   letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
 }
 
 .odometer span {
@@ -118,13 +134,28 @@
 
 .date {
   margin: 0;
-  color: var(--hero-muted);
+  color: var(--muted);
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
-@media (max-width: 540px) {
+@media (max-width: 640px) {
+  .panel,
+  .summary {
+    padding: 20px;
+  }
+
   .fields {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .primary {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primary {
+    transition: none;
   }
 }

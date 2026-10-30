@@ -1,0 +1,553 @@
+.workspace {
+  isolation: isolate;
+  min-width: 0;
+}
+
+/* Eén achtergrondkleur, ook onder het transparante einde van de foto. */
+.workspace::before {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background: var(--bg);
+  content: "";
+  pointer-events: none;
+}
+
+.overview,
+.history,
+.costs,
+.section,
+.tripSlot > section > details,
+.refuelSlot > section > details {
+  scroll-margin-top: calc(92px + env(safe-area-inset-top, 0px));
+}
+
+.overview:focus,
+.history:focus,
+.section:focus {
+  outline: none;
+}
+
+.backdrop {
+  position: fixed;
+  z-index: 0;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  will-change: top, left, width, height;
+}
+
+.backgroundImage {
+  object-fit: contain;
+  object-position: center top;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 35%,
+    rgb(0 0 0 / 85%) 55%,
+    rgb(0 0 0 / 35%) 78%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 35%,
+    rgb(0 0 0 / 85%) 55%,
+    rgb(0 0 0 / 35%) 78%,
+    transparent 100%
+  );
+}
+
+.wash {
+  display: none;
+}
+
+.overview,
+.history,
+.section,
+.statistics {
+  position: relative;
+  z-index: 1;
+}
+
+.heroMount > div {
+  background: transparent;
+}
+
+.workspace[data-photo-ready="true"]
+  .heroMount
+  > div
+  > div:first-child
+  > div:first-child,
+.workspace[data-photo-ready="true"]
+  .heroMount
+  > div
+  > div:first-child
+  > div:nth-child(2) {
+  visibility: hidden;
+}
+
+.heroMount > div > div:last-child {
+  background: var(--glass-sheen), var(--glass-bg);
+}
+
+.workspace[data-scrolled] .heroMount > div {
+  border-color: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.workspace[data-scrolled] .heroMount > div > div:last-child {
+  background: transparent;
+}
+
+.workspace section {
+  border-color: var(--glass-border);
+  background: var(--glass-sheen), var(--glass-bg);
+  -webkit-backdrop-filter: blur(3px) saturate(130%);
+  backdrop-filter: blur(3px) saturate(130%);
+}
+
+.workspace .overview,
+.workspace .history,
+.workspace .recent,
+.workspace .costs,
+.workspace .section {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.entries {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.tripSlot,
+.refuelSlot,
+.tripSlot > section,
+.refuelSlot > section,
+.tripSlot > section > div:first-child,
+.refuelSlot > section > div:first-child {
+  display: contents;
+}
+
+.tripSlot > section > div:first-child > div,
+.refuelSlot > section > div:first-child > div {
+  display: none;
+}
+
+.tripSlot > section > div:first-child > button,
+.refuelSlot > section > div:first-child > button {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 12px 8px;
+  font-size: 13px;
+}
+
+.tripSlot > section > div:first-child > button {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.refuelSlot > section > div:first-child > button {
+  grid-column: 2;
+  grid-row: 1;
+  color: var(--text);
+}
+
+.tripSlot > section > details,
+.refuelSlot > section > details {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+}
+
+.tripSlot > section > details {
+  grid-row: 4;
+}
+
+.refuelSlot > section > details {
+  grid-row: 5;
+}
+
+.tripSlot > section > div:not(:first-child),
+.tripSlot > section > p,
+.refuelSlot > section > div:not(:first-child),
+.refuelSlot > section > p {
+  grid-column: 1 / -1;
+}
+
+.recent {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  min-width: 0;
+  margin: 8px 0 2px;
+}
+
+.recent h2 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.recent > p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.recent a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  margin-top: 8px;
+  border-radius: var(--radius-md);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.recent a > span {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--glass-bg);
+}
+
+.recent a > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.recent strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.recent p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.recent b {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.costs {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  min-width: 0;
+}
+
+.workspace .costs > section:first-child {
+  margin-top: 4px;
+  padding: 20px;
+  border-radius: var(--radius-lg);
+}
+
+/* Bedragen en opbouw delen het ene glazen afrekenoppervlak. */
+.workspace .costs > section > div:has(> h3):has(> div) {
+  margin-top: 20px;
+  padding: 20px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border-soft);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.workspace .costs > section > div:has(> h3):has(> div) > div {
+  gap: 0;
+  margin-top: 14px;
+}
+
+.workspace .costs > section details:has(> summary + div) {
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-soft);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.workspace .costs > section details:has(> summary + div):last-child {
+  border-bottom: 0;
+}
+
+.workspace .costs > section details > summary,
+.workspace .costs > section details[open] > summary {
+  min-width: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.workspace .costs > section > div:has(> h3):has(> div) > div > details {
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-soft);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.workspace
+  .costs
+  > section
+  > div:has(> h3):has(> div)
+  > div
+  > details:last-child {
+  border-bottom: 0;
+}
+
+.workspace
+  .costs
+  > section
+  > div:has(> h3):has(> div)
+  > div
+  > details
+  > summary {
+  flex-wrap: nowrap;
+  gap: 10px;
+  min-height: 76px;
+  padding: 14px 28px 14px 0;
+}
+
+.workspace
+  .costs
+  > section
+  > div:has(> h3):has(> div)
+  > div
+  > details[open]
+  > summary {
+  background: transparent;
+}
+
+.workspace
+  .costs
+  > section
+  > div:has(> h3):has(> div)
+  > div
+  > details
+  > summary
+  > span:first-child {
+  flex: 1 1 0;
+  gap: 10px;
+}
+
+.workspace
+  .costs
+  > section
+  > div:has(> h3):has(> div)
+  > div
+  > details
+  > summary
+  > span:last-child {
+  flex: 0 0 auto;
+}
+
+.workspace
+  .costs
+  > section
+  > div:has(> h3):has(> div)
+  > div
+  > details
+  > summary
+  > span:last-child
+  > strong {
+  font-size: clamp(19px, 4.5vw, 23px);
+  white-space: nowrap;
+}
+
+.workspace .costs > section details > summary::after {
+  inset-inline-end: 3px;
+}
+
+.workspace .costs > section > div:has(> h3):has(> div) > div > details > div {
+  min-width: 0;
+  margin: 0;
+  padding: 16px 0 18px;
+  border-top: 1px solid var(--border-soft);
+  background: transparent;
+}
+
+.workspace .costs > section details > div > h4,
+.workspace .costs > section details > div > h3 {
+  max-width: 48ch;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.workspace .costs > section details > div > ul {
+  margin-top: 10px;
+}
+
+.workspace .costs > section details > div > ul > li {
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.workspace .costs > section details > div > ul > li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.workspace .costs > section details > div > ul > li > strong {
+  flex: 0 0 auto;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.section {
+  margin-top: 20px;
+  min-width: 0;
+}
+
+.section > section:first-child {
+  margin-top: 0;
+}
+
+.section > section > div:has(> div > nav[aria-label="Kalenderweek"]) {
+  margin-top: 18px;
+  margin-inline: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.section > section section[aria-label] {
+  border: 0;
+  border-top: 1px solid var(--border-soft);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.section > section section[aria-label]:has([aria-current="date"]) {
+  border-top: 2px solid var(--accent);
+}
+
+.statistics {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 66px;
+  margin-top: 16px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.statistics > span {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+}
+
+.statistics strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.statistics small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.dock {
+  position: fixed;
+  z-index: 30;
+  bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  width: min(480px, calc(100% - 24px));
+  transform: translateX(-50%);
+}
+
+.dock .bar {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px;
+  padding: 6px;
+  border-radius: var(--radius-pill);
+}
+
+.link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 8px 3px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  font-size: 10px;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.link[aria-current="location"] {
+  border-color: var(--accent-border);
+  background: var(--accent-soft-strong);
+  color: var(--accent-text);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+
+.link:focus-visible,
+.statistics:focus-visible,
+.recent a:focus-visible {
+  outline: 3px solid var(--accent-text);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .link:hover {
+    background: var(--accent-soft-hover);
+  }
+
+  .workspace .costs > section details > summary:hover,
+  .workspace .costs > section details[open] > summary:hover {
+    background: transparent;
+  }
+}
+
+@media (max-width: 540px) {
+  .tripSlot > section > div:first-child > button,
+  .refuelSlot > section > div:first-child > button {
+    font-size: 11px;
+    gap: 5px;
+  }
+
+  .workspace .costs > section:first-child {
+    padding: 18px 16px;
+  }
+}

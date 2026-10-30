@@ -8,7 +8,9 @@ import type {
   RefuelHistoryItem,
 } from "@/lib/car-history-types";
 import ActionButton, { ActionGroup } from "./action-button";
-import styles from "./car-trips.module.css";
+import AppIcon from "./app-icon";
+import UserAvatar from "./user-avatar";
+import styles from "./car-history.module.css";
 
 type Props = {
   organizationId: string;
@@ -23,6 +25,7 @@ type Props = {
 };
 
 const numbers = new Intl.NumberFormat("nl-BE");
+
 const euros = new Intl.NumberFormat("nl-BE", {
   style: "currency",
   currency: "EUR",
@@ -50,6 +53,7 @@ export default function CarRefuelHistory({
   const [retry, setRetry] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   const [data, setData] = useState<HistoryPage<RefuelHistoryEntry> | null>(
     null,
   );
@@ -81,9 +85,7 @@ export default function CarRefuelHistory({
           );
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -120,40 +122,48 @@ export default function CarRefuelHistory({
     <details
       className={styles.history}
       open={open}
-      onToggle={(event) => {
-        onOpenChange(event.currentTarget.open);
-      }}
+      onToggle={(event) => onOpenChange(event.currentTarget.open)}
     >
-      <summary className={styles.historySummary}>
-        <span className={styles.historyHeading}>
-          <span>Tankgeschiedenis</span>
-          <span className={styles.count}>{data?.total ?? total}</span>
+      <summary className={styles.summary}>
+        <span className={styles.summaryIcon} aria-hidden="true">
+          <AppIcon name="wallet" size={20} />
         </span>
 
-        <span className={styles.historyMeta}>Volle tankbeurten</span>
+        <span className={styles.summaryText}>
+          <span className={styles.summaryTitle}>
+            Tankhistoriek
+            <span className={styles.count}>
+              {numbers.format(data?.total ?? total)}
+            </span>
+          </span>
+
+          <span className={styles.summaryMeta}>
+            Volle tankbeurten en startpunt
+          </span>
+        </span>
       </summary>
 
-      {open && (
-        <>
-          <p className={styles.historyDescription}>
+      {open ? (
+        <div className={styles.content} aria-busy={loading}>
+          <p className={styles.description}>
             Nieuwste kilometerstanden eerst. Afgerekende periodes moet een
             eigenaar eerst opnieuw openen om bijbehorende tankbeurten te
             wijzigen of te verwijderen.
           </p>
 
           {loading ? (
-            <p className={styles.empty} role="status">
-              Tankgeschiedenis laden…
-            </p>
+            <div className={styles.feedback} role="status">
+              Tankhistoriek laden…
+            </div>
           ) : error ? (
-            <div>
+            <div className={styles.feedback}>
               <p role="alert" className={styles.error}>
                 {error}
               </p>
 
               <ActionButton
                 icon="undo"
-                className={styles.secondary}
+                variant="secondary"
                 disabled={busy}
                 onClick={() => {
                   setLoading(true);
@@ -164,31 +174,48 @@ export default function CarRefuelHistory({
               </ActionButton>
             </div>
           ) : !data || data.items.length === 0 ? (
-            <p className={styles.empty}>Nog geen tankbeurten geregistreerd.</p>
+            <div className={styles.feedback}>
+              Nog geen tankbeurten geregistreerd.
+            </div>
           ) : (
             <>
               <ul className={styles.list}>
                 {data.items.map((entry) => {
                   if (entry.kind === "startpoint") {
                     return (
-                      <li key="startpoint" className={styles.trip}>
-                        <div className={styles.tripInfo}>
-                          <p className={styles.driver}>
-                            {formatDate(entry.startpoint.tankDate)}
-                          </p>
-
-                          <p className={styles.detail}>
-                            {numbers.format(entry.startpoint.odometer)} km
-                          </p>
-
-                          <span className={styles.settledBadge}>
-                            Startpunt · volle tank
+                      <li
+                        key="startpoint"
+                        className={[styles.row, styles.startpoint].join(" ")}
+                      >
+                        <div className={styles.identity}>
+                          <span className={styles.avatar} aria-hidden="true">
+                            <AppIcon name="gauge" size={18} />
                           </span>
 
-                          <p className={styles.detail}>
-                            Begin van de kilometerregistratie. Deze tank telt
-                            niet mee in de afrekening.
-                          </p>
+                          <div className={styles.info}>
+                            <p className={styles.title}>Startpunt</p>
+
+                            <p className={styles.detail}>
+                              {formatDate(entry.startpoint.tankDate)}
+                            </p>
+
+                            <p
+                              className={[styles.detail, styles.odometer].join(
+                                " ",
+                              )}
+                            >
+                              {numbers.format(entry.startpoint.odometer)} km
+                            </p>
+
+                            <span className={styles.neutralBadge}>
+                              Volle tank · start registratie
+                            </span>
+
+                            <p className={styles.detail}>
+                              Begin van de kilometerregistratie. Deze tank telt
+                              niet mee in de afrekening.
+                            </p>
+                          </div>
                         </div>
                       </li>
                     );
@@ -198,48 +225,73 @@ export default function CarRefuelHistory({
                   const manageable = canManage(refuel);
 
                   return (
-                    <li key={refuel.id} className={styles.trip}>
-                      <div className={styles.tripInfo}>
-                        <p className={styles.driver}>
-                          {formatDate(refuel.tankDate)}
-                        </p>
+                    <li key={refuel.id} className={styles.row}>
+                      <div className={styles.identity}>
+                        <span className={styles.avatar} aria-hidden="true">
+                          <UserAvatar
+                            name={refuel.payerName}
+                            userId={refuel.paidBy}
+                          />
+                        </span>
 
-                        <p className={styles.detail}>
-                          {numbers.format(refuel.odometer)} km
-                        </p>
+                        <div className={styles.info}>
+                          <p className={styles.title}>
+                            {formatDate(refuel.tankDate)}
+                          </p>
 
-                        <p className={styles.detail}>
-                          Betaald door {refuel.payerName}
-                        </p>
+                          <p className={styles.detail}>
+                            Betaald door {refuel.payerName}
+                          </p>
 
-                        {refuel.settledAt && (
-                          <span className={styles.settledBadge}>
-                            Afgerekend
-                          </span>
-                        )}
+                          <p
+                            className={[styles.detail, styles.odometer].join(
+                              " ",
+                            )}
+                          >
+                            {numbers.format(refuel.odometer)} km
+                          </p>
 
-                        {!refuel.settledAt &&
+                          {refuel.settledAt ? (
+                            <span className={styles.badge}>
+                              <AppIcon name="shield" size={13} />
+                              Afgerekend
+                            </span>
+                          ) : null}
+
+                          {!refuel.settledAt &&
                           refuel.boundaryLocked &&
-                          manageable && (
-                            <p className={styles.detail}>
-                              Verwijderen kan na het heropenen van de volgende
-                              afgerekende periode.
-                            </p>
-                          )}
+                          manageable ? (
+                            <>
+                              <span className={styles.neutralBadge}>
+                                <AppIcon name="shield" size={13} />
+                                Datum en stand vast
+                              </span>
+
+                              <p className={styles.detail}>
+                                Verwijderen kan na het heropenen van de volgende
+                                afgerekende periode.
+                              </p>
+                            </>
+                          ) : null}
+                        </div>
                       </div>
 
-                      <div className={styles.wideField}>
-                        <strong className={styles.tripDistance}>
+                      <div className={styles.side}>
+                        <strong className={styles.value}>
                           {euros.format(refuel.amountCents / 100)}
                         </strong>
 
-                        {manageable && !refuel.settledAt && (
+                        {manageable && !refuel.settledAt ? (
                           <ActionGroup>
                             <ActionButton
                               icon="edit"
                               iconOnly
-                              label={`Tankbeurt van ${formatDate(refuel.tankDate)} bewerken`}
-                              className={styles.secondary}
+                              label={
+                                "Tankbeurt van " +
+                                formatDate(refuel.tankDate) +
+                                " bewerken"
+                              }
+                              variant="glass"
                               disabled={busy}
                               onClick={() => onEdit(refuel)}
                             />
@@ -251,21 +303,23 @@ export default function CarRefuelHistory({
                               label={
                                 refuel.boundaryLocked
                                   ? "Verwijderen geblokkeerd: de volgende periode is afgerekend"
-                                  : `Tankbeurt van ${formatDate(refuel.tankDate)} verwijderen`
+                                  : "Tankbeurt van " +
+                                    formatDate(refuel.tankDate) +
+                                    " verwijderen"
                               }
-                              className={styles.secondary}
+                              variant="ghost"
                               disabled={busy || refuel.boundaryLocked}
                               onClick={() => onDelete(refuel)}
                             />
                           </ActionGroup>
-                        )}
+                        ) : null}
                       </div>
                     </li>
                   );
                 })}
               </ul>
 
-              {pageCount > 1 && (
+              {pageCount > 1 ? (
                 <nav
                   className={styles.pagination}
                   aria-label="Tankbeurten pagineren"
@@ -280,12 +334,12 @@ export default function CarRefuelHistory({
                   <div className={styles.pageActions}>
                     <ActionButton
                       icon="arrow-left"
-                      className={styles.secondary}
+                      iconOnly
+                      label="Vorige pagina met tankbeurten"
+                      variant="secondary"
                       disabled={busy || data.page === 0}
                       onClick={() => changePage(data.page - 1)}
-                    >
-                      Vorige
-                    </ActionButton>
+                    />
 
                     <span>
                       {data.page + 1} / {pageCount}
@@ -293,19 +347,19 @@ export default function CarRefuelHistory({
 
                     <ActionButton
                       icon="arrow-right"
-                      className={styles.secondary}
+                      iconOnly
+                      label="Volgende pagina met tankbeurten"
+                      variant="secondary"
                       disabled={busy || data.page === pageCount - 1}
                       onClick={() => changePage(data.page + 1)}
-                    >
-                      Volgende
-                    </ActionButton>
+                    />
                   </div>
                 </nav>
-              )}
+              ) : null}
             </>
           )}
-        </>
-      )}
+        </div>
+      ) : null}
     </details>
   );
 }

@@ -1,0 +1,288 @@
+.definitions {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.scope {
+  min-width: 0;
+}
+
+.surface {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: var(--radius-lg);
+  color: var(--text);
+}
+
+/* Alle afrekenkaarten, inclusief de afrekenhistoriek. */
+.scope
+  :global(
+    :where(
+      [data-glass],
+      #car-costs > section,
+      #car-planning > section,
+      #car-group > section,
+      #car-history > div > section[aria-label="Laatste activiteit"] a,
+      [data-entry="refuel"] > section > div:first-child > button,
+      [data-entry] > section > details,
+      #car-overview
+        > div:first-child
+        > div
+        > div:last-child
+        > div:last-child
+        > div:last-child
+        button
+    )
+  ) {
+  position: relative;
+}
+
+.surface:not(.solid),
+.scope
+  :global(
+    :where(
+      [data-glass],
+      #car-costs > section,
+      #car-planning > section,
+      #car-group > section,
+      #car-history > div > section[aria-label="Laatste activiteit"] a,
+      [data-entry="refuel"] > section > div:first-child > button,
+      [data-entry] > section > details,
+      #car-overview
+        > div:first-child
+        > div
+        > div:last-child
+        > div:last-child
+        > div:last-child
+        button
+    )
+  ) {
+  isolation: isolate;
+  border: 1.5px solid !important;
+  border-color: var(--glass-edge-top) var(--glass-edge-right)
+    var(--glass-edge-bottom) var(--glass-edge-left) !important;
+  background: transparent !important;
+  box-shadow: var(--glass-shadow) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.surface:not(.solid)::before,
+.surface:not(.solid)::after,
+.scope
+  :global(
+    :where(
+      [data-glass],
+      #car-costs > section,
+      #car-planning > section,
+      #car-group > section,
+      #car-history > div > section[aria-label="Laatste activiteit"] a,
+      [data-entry="refuel"] > section > div:first-child > button,
+      [data-entry] > section > details,
+      #car-overview
+        > div:first-child
+        > div
+        > div:last-child
+        > div:last-child
+        > div:last-child
+        button
+    )
+  )::before,
+.scope
+  :global(
+    :where(
+      [data-glass],
+      #car-costs > section,
+      #car-planning > section,
+      #car-group > section,
+      #car-history > div > section[aria-label="Laatste activiteit"] a,
+      [data-entry="refuel"] > section > div:first-child > button,
+      [data-entry] > section > details,
+      #car-overview
+        > div:first-child
+        > div
+        > div:last-child
+        > div:last-child
+        > div:last-child
+        button
+    )
+  )::after {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  border: 0;
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+}
+
+.surface:not(.solid)::before,
+.scope
+  :global(
+    :where(
+      [data-glass],
+      #car-costs > section,
+      #car-planning > section,
+      #car-group > section,
+      #car-history > div > section[aria-label="Laatste activiteit"] a,
+      [data-entry="refuel"] > section > div:first-child > button,
+      [data-entry] > section > details,
+      #car-overview
+        > div:first-child
+        > div
+        > div:last-child
+        > div:last-child
+        > div:last-child
+        button
+    )
+  )::before {
+  z-index: -2;
+  background: transparent;
+  -webkit-backdrop-filter: blur(var(--glass-blur))
+    saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  filter: var(--glass-filter);
+}
+
+.surface:not(.solid)::after,
+.scope
+  :global(
+    :where(
+      [data-glass],
+      #car-costs > section,
+      #car-planning > section,
+      #car-group > section,
+      #car-history > div > section[aria-label="Laatste activiteit"] a,
+      [data-entry="refuel"] > section > div:first-child > button,
+      [data-entry] > section > details,
+      #car-overview
+        > div:first-child
+        > div
+        > div:last-child
+        > div:last-child
+        > div:last-child
+        button
+    )
+  )::after {
+  z-index: -1;
+  background: var(--glass-sheen), var(--glass-bg);
+  box-shadow:
+    inset 2px 3px 2px -1px var(--glass-rim-light),
+    inset -2px -3px 2px -1px var(--glass-rim-dark),
+    inset 5px 6px 5px -5px var(--glass-highlight),
+    inset -5px -6px 5px -5px var(--glass-edge-left),
+    inset 0 0 0 1px var(--glass-edge-right);
+}
+
+.surface.solid {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+@supports not (
+  (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
+) {
+  .surface:not(.solid)::before,
+  .scope
+    :global(
+      :where(
+        [data-glass],
+        #car-costs > section,
+        #car-planning > section,
+        #car-group > section,
+        #car-history > div > section[aria-label="Laatste activiteit"] a,
+        [data-entry="refuel"] > section > div:first-child > button,
+        [data-entry] > section > details,
+        #car-overview
+          > div:first-child
+          > div
+          > div:last-child
+          > div:last-child
+          > div:last-child
+          button
+      )
+    )::before {
+    filter: none;
+  }
+
+  .surface:not(.solid)::after,
+  .scope
+    :global(
+      :where(
+        [data-glass],
+        #car-costs > section,
+        #car-planning > section,
+        #car-group > section,
+        #car-history > div > section[aria-label="Laatste activiteit"] a,
+        [data-entry="refuel"] > section > div:first-child > button,
+        [data-entry] > section > details,
+        #car-overview
+          > div:first-child
+          > div
+          > div:last-child
+          > div:last-child
+          > div:last-child
+          button
+      )
+    )::after {
+    background: var(--surface);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .surface:not(.solid)::before,
+  .scope
+    :global(
+      :where(
+        [data-glass],
+        #car-costs > section,
+        #car-planning > section,
+        #car-group > section,
+        #car-history > div > section[aria-label="Laatste activiteit"] a,
+        [data-entry="refuel"] > section > div:first-child > button,
+        [data-entry] > section > details,
+        #car-overview
+          > div:first-child
+          > div
+          > div:last-child
+          > div:last-child
+          > div:last-child
+          button
+      )
+    )::before {
+    filter: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .surface:not(.solid)::after,
+  .scope
+    :global(
+      :where(
+        [data-glass],
+        #car-costs > section,
+        #car-planning > section,
+        #car-group > section,
+        #car-history > div > section[aria-label="Laatste activiteit"] a,
+        [data-entry="refuel"] > section > div:first-child > button,
+        [data-entry] > section > details,
+        #car-overview
+          > div:first-child
+          > div
+          > div:last-child
+          > div:last-child
+          > div:last-child
+          button
+      )
+    )::after {
+    background: var(--surface);
+  }
+}

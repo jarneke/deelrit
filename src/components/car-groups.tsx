@@ -1,51 +1,84 @@
 "use client";
 
-import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useId, useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
-import styles from "./car-groups.module.css";
-import linkStyles from "./car-link.module.css";
-
-type Car = {
-  id: string;
-  name: string;
-  licensePlate: string | null;
-};
+import ActionButton from "./action-button";
+import AppIcon from "./app-icon";
+import CarCard, { type CarCardData } from "./car-card";
+import GlassSurface from "./glass-surface";
+import ResponsiveDialog from "./responsive-dialog";
+import formStyles from "./car-groups.module.css";
+import styles from "./car-groups-overview.module.css";
 
 type Props = {
-  cars: Car[];
+  cars: CarCardData[];
 };
 
 export default function CarGroups({ cars }: Props) {
   const router = useRouter();
+  const id = useId();
+  const formId = id + "-form";
+  const dialogId = id + "-dialog";
+  const operationPending = useRef(false);
 
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [licensePlate, setLicensePlate] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [refreshing, startRefresh] = useTransition();
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
+  const busy = creating || refreshing;
+
+  function openForm() {
+    if (busy || showForm) return;
+
+    setName("");
+    setLicensePlate("");
+    setError("");
+    setNotice("");
+    setShowForm(true);
+  }
+
+  function cancel() {
+    if (busy || operationPending.current) return;
+
+    setShowForm(false);
+    setName("");
+    setLicensePlate("");
+    setError("");
+  }
+
   async function createCar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (busy || operationPending.current) return;
+
     setError("");
     setNotice("");
 
     const cleanName = name.trim();
     const cleanPlate = licensePlate.trim().toUpperCase();
 
-    if (!cleanName) {
-      setError("Geef je auto een naam.");
+    if (!cleanName || cleanName.length > 80) {
+      setError("Geef je auto een naam van maximaal 80 tekens.");
       return;
     }
 
-    setBusy(true);
+    if (cleanPlate.length > 20) {
+      setError("Gebruik maximaal 20 tekens voor de nummerplaat.");
+      return;
+    }
+
+    operationPending.current = true;
+    setCreating(true);
 
     try {
       const result = await authClient.organization.create({
         name: cleanName,
-        slug: `auto-${crypto.randomUUID()}`,
+        slug: "auto-" + crypto.randomUUID(),
         ...(cleanPlate ? { licensePlate: cleanPlate } : {}),
       });
 
@@ -57,76 +90,119 @@ export default function CarGroups({ cars }: Props) {
       setName("");
       setLicensePlate("");
       setShowForm(false);
-      setNotice(`${cleanName} is toegevoegd. Jij bent de eigenaar.`);
-      router.refresh();
+      setNotice(cleanName + " is toegevoegd. Jij bent de eigenaar.");
+
+      startRefresh(() => router.refresh());
     } catch {
       setError("Verbinding mislukt. Probeer opnieuw.");
     } finally {
-      setBusy(false);
+      operationPending.current = false;
+      setCreating(false);
     }
-  }
-
-  function cancel() {
-    setShowForm(false);
-    setName("");
-    setLicensePlate("");
-    setError("");
   }
 
   return (
     <div className={styles.content}>
       <div className={styles.toolbar}>
         <p className={styles.count}>
-          {cars.length === 1 ? "1 auto" : `${cars.length} auto’s`}
+          {cars.length === 1 ? "1 auto" : cars.length + " auto’s"}
         </p>
 
-        {!showForm && (
-          <button
-            type="button"
-            className={styles.primary}
-            onClick={() => {
-              setShowForm(true);
-              setNotice("");
-            }}
-          >
-            + Auto toevoegen
-          </button>
-        )}
+        <ActionButton
+          icon="plus"
+          variant="primary"
+          disabled={busy || showForm}
+          aria-haspopup="dialog"
+          aria-expanded={showForm}
+          aria-controls={dialogId}
+          onClick={openForm}
+        >
+          Auto toevoegen
+        </ActionButton>
       </div>
 
-      {notice && (
+      {notice ? (
         <p role="status" className={styles.notice}>
           {notice}
         </p>
+      ) : null}
+
+      {cars.length === 0 ? (
+        <GlassSurface as="section" className={styles.empty}>
+          <span className={styles.emptyIcon} aria-hidden="true">
+            <AppIcon name="car" size={30} />
+          </span>
+
+          <h2>Jullie eerste auto begint hier.</h2>
+
+          <p>
+            Voeg een auto toe om samen ritten en tankbeurten bij te houden.
+            Auto’s waarvoor je een uitnodiging aanvaardt verschijnen hier ook.
+          </p>
+        </GlassSurface>
+      ) : (
+        <ul className={styles.grid}>
+          {cars.map((car, index) => (
+            <li key={car.id}>
+              <CarCard {...car} eager={index === 0} />
+            </li>
+          ))}
+        </ul>
       )}
 
-      {showForm && (
-        <section className={styles.formPanel}>
-          <h2 className={styles.sectionTitle}>Een auto toevoegen</h2>
+      <ResponsiveDialog
+        id={dialogId}
+        open={showForm}
+        onClose={cancel}
+        title="Een auto toevoegen"
+        description="Je maakt een aparte groep voor deze auto."
+        busy={busy}
+        size="small"
+        footer={
+          <>
+            <ActionButton
+              icon="close"
+              variant="secondary"
+              disabled={busy}
+              onClick={cancel}
+            >
+              Annuleren
+            </ActionButton>
 
-          <p className={styles.description}>
-            Je maakt een aparte groep voor deze auto.
-          </p>
+            <ActionButton
+              type="submit"
+              form={formId}
+              icon="plus"
+              variant="primary"
+              loading={creating}
+              disabled={busy}
+            >
+              {creating ? "Toevoegen…" : "Auto toevoegen"}
+            </ActionButton>
+          </>
+        }
+      >
+        {showForm ? (
+          <form id={formId} onSubmit={createCar} aria-busy={busy}>
+            <fieldset disabled={busy} className={formStyles.fields}>
+              <div className={formStyles.field}>
+                <label htmlFor={id + "-name"}>Autonaam</label>
 
-          <form onSubmit={createCar}>
-            <fieldset disabled={busy} className={styles.fields}>
-              <div className={styles.field}>
-                <label htmlFor="car-name">Autonaam</label>
                 <input
-                  id="car-name"
+                  id={id + "-name"}
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="Bijvoorbeeld: Onze Clio"
                   required
                   maxLength={80}
-                  autoFocus
                 />
               </div>
 
-              <div className={styles.field}>
-                <label htmlFor="license-plate">Nummerplaat · optioneel</label>
+              <div className={formStyles.field}>
+                <label htmlFor={id + "-plate"}>Nummerplaat · optioneel</label>
+
                 <input
-                  id="license-plate"
+                  id={id + "-plate"}
                   value={licensePlate}
                   onChange={(event) => setLicensePlate(event.target.value)}
                   placeholder="Bijvoorbeeld: 1-ABC-123"
@@ -135,67 +211,19 @@ export default function CarGroups({ cars }: Props) {
                 />
               </div>
 
-              {error && (
-                <p role="alert" className={styles.error}>
-                  {error}
-                </p>
-              )}
-
-              <div className={styles.formActions}>
-                <button type="submit" className={styles.primary}>
-                  {busy ? "Toevoegen…" : "Auto toevoegen"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={cancel}
-                  className={styles.secondary}
-                >
-                  Annuleren
-                </button>
-              </div>
-            </fieldset>
-          </form>
-        </section>
-      )}
-
-      {cars.length === 0 ? (
-        <section className={styles.empty}>
-          <span className={styles.emptyIcon} aria-hidden="true">
-            ↔
-          </span>
-          <h2>Nog geen gedeelde auto.</h2>
-          <p>
-            Voeg je eerste auto toe. Hier verschijnen ook de auto’s waarvoor je
-            een uitnodiging aanvaardt.
-          </p>
-        </section>
-      ) : (
-        <div className={styles.grid}>
-          {cars.map((car) => (
-            <Link
-              key={car.id}
-              href={`/auto/${encodeURIComponent(car.id)}`}
-              className={`${styles.car} ${linkStyles.link}`}
-            >
-              <div className={styles.carTop}>
-                <span className={styles.carIcon} aria-hidden="true">
-                  ↔
-                </span>
-                <span className={styles.badge}>Autogroep</span>
-              </div>
-
-              <h2>{car.name}</h2>
-
-              <p className={styles.plate}>
-                {car.licensePlate || "Geen nummerplaat ingevuld"}
+              <p className={styles.formHint}>
+                Je kunt de autofoto daarna aanpassen via Auto bewerken.
               </p>
 
-              <p className={styles.carHint}>Bekijk deze auto →</p>
-            </Link>
-          ))}
-        </div>
-      )}
+              {error ? (
+                <p role="alert" className={formStyles.error}>
+                  {error}
+                </p>
+              ) : null}
+            </fieldset>
+          </form>
+        ) : null}
+      </ResponsiveDialog>
     </div>
   );
 }

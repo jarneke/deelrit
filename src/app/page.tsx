@@ -3,6 +3,9 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { requireSession } from "@/lib/session";
+import { db } from "@/lib/db";
+import { getCarPhotoSource, getProfilePhotoSource } from "@/lib/github-images";
+import UserAvatar from "@/components/user-avatar";
 import CarGroups from "@/components/car-groups";
 import LoadingState from "@/components/loading-state";
 import styles from "./page.module.css";
@@ -29,19 +32,21 @@ async function MyCars() {
     headers: await headers(),
   });
 
-  const initials =
-    session.user.name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part.charAt(0))
-      .join("")
-      .toUpperCase() || "?";
+  const profile = await db.query<{ image: string | null }>(
+    'SELECT image FROM public."user" WHERE id = $1',
+    [session.user.id],
+  );
+
+  const avatarSource = getProfilePhotoSource(
+    session.user.id,
+    profile.rows[0]?.image ?? null,
+  );
 
   const cars = organizations.map((organization) => ({
     id: organization.id,
     name: organization.name,
     licensePlate: organization.licensePlate ?? null,
+    photoSource: getCarPhotoSource(organization.id, organization.logo ?? null),
   }));
 
   return (
@@ -49,23 +54,33 @@ async function MyCars() {
       <div className={styles.container}>
         <header className={styles.header}>
           <span className={styles.logo}>
-            deel<span>rit.</span>
+            deelrit<span>.</span>
           </span>
 
           <Link
             href="/account"
-            className={styles.avatar}
-            aria-label={`Account van ${session.user.name}`}
+            className={styles.profileLink}
+            aria-label={"Account van " + session.user.name}
           >
-            {initials}
+            <span className={styles.profileLabel}>Mijn profiel</span>
+
+            <span className={styles.avatar}>
+              <UserAvatar name={session.user.name} source={avatarSource} />
+            </span>
           </Link>
         </header>
 
-        <p className={styles.welcome}>Welkom, {session.user.name}</p>
-        <h1 className={styles.title}>Mijn auto’s.</h1>
-        <p className={styles.subtitle}>
-          Elke auto heeft zijn eigen groep, ritten en afrekening.
-        </p>
+        <div className={styles.introduction}>
+          <p className={styles.welcome}>Welkom, {session.user.name}</p>
+
+          <h1 className={styles.title}>
+            Mijn auto’s<span>.</span>
+          </h1>
+
+          <p className={styles.subtitle}>
+            Jullie auto’s, ritten en kosten. Alles op één plek.
+          </p>
+        </div>
 
         <CarGroups cars={cars} />
       </div>

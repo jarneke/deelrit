@@ -1,0 +1,79 @@
+.entryForm {
+  margin: 0;
+}
+
+.entryForm .context {
+  padding: 18px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+}
+
+.distance {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+}
+
+.distanceLabel {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.distanceValue {
+  color: var(--accent-text);
+  font-size: 23px;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.7px;
+  font-variant-numeric: tabular-nums;
+}
+
+.distanceHint {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.deleteContent {
+  display: grid;
+  gap: 18px;
+}
+
+.deleteContent p {
+  margin: 0;
+}
+
+.deleteSummary {
+  padding: 16px 18px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+}
+
+.deleteSummary strong {
+  color: var(--text);
+}
+
+.deleteExplanation {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+@media (max-width: 380px) {
+  .entryForm .context,
+  .distance,
+  .deleteSummary {
+    padding: 14px;
+  }
+}

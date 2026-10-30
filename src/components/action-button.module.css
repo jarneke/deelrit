@@ -19,19 +19,101 @@
   padding: 0;
 }
 
+.button.styled {
+  position: relative;
+  min-height: 46px;
+  padding: 12px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.button.styled.iconOnly {
+  align-self: auto;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+}
+
+.button.primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-on);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 16%),
+    0 3px 8px rgb(0 0 0 / 8%);
+}
+
+.button.secondary {
+  border-color: var(--input-border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.button.glass {
+  border-color: var(--glass-border);
+  background: var(--glass-sheen), var(--glass-bg);
+  color: var(--text);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 var(--glass-shade),
+    inset 2px 3px 2px -1px var(--glass-rim-light),
+    inset -2px -3px 2px -1px var(--glass-rim-dark),
+    0 4px 14px rgb(0 0 0 / 12%);
+  -webkit-backdrop-filter: blur(4px) saturate(var(--glass-saturation));
+  backdrop-filter: blur(4px) saturate(var(--glass-saturation));
+}
+
+.button.ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+}
+
 .button.danger {
   border-color: var(--danger-border);
   background: var(--surface);
   color: var(--danger);
 }
 
-.button.danger:hover:not(:disabled) {
-  background: var(--danger-bg);
+.button.styled.primary.danger {
+  border-color: transparent;
+  background: var(--danger-solid);
+  color: var(--danger-on);
 }
 
 .button:focus-visible {
   outline: 3px solid var(--accent-text);
   outline-offset: 3px;
+}
+
+.button.styled:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.button.styled[aria-busy="true"] {
+  cursor: wait;
+}
+
+.button.styled:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .group {
@@ -46,6 +128,39 @@
   animation: action-button-spin 900ms linear infinite;
 }
 
+@media (hover: hover) {
+  .button.primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 16%),
+      0 5px 14px var(--focus-ring);
+  }
+
+  .button.secondary:hover:not(:disabled) {
+    border-color: var(--accent-border);
+    background: var(--surface-hover);
+  }
+
+  .button.glass:hover:not(:disabled) {
+    border-color: var(--accent-border);
+    background: var(--glass-sheen), var(--glass-bg);
+    box-shadow: var(--glass-shadow);
+  }
+
+  .button.ghost:hover:not(:disabled) {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+}
+
+.button.danger:hover:not(:disabled) {
+  background: var(--danger-bg);
+}
+
+.button.styled.primary.danger:hover:not(:disabled) {
+  background: var(--danger-solid-hover);
+}
+
 @keyframes action-button-spin {
   to {
     transform: rotate(360deg);
@@ -53,6 +168,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .button.styled {
+    transition: none;
+  }
+
+  .button.styled:active:not(:disabled) {
+    transform: none;
+  }
+
   .spinning {
     animation: none;
   }
