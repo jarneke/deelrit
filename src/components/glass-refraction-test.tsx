@@ -21,6 +21,7 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
   const sceneRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const copyRef = useRef<SVGImageElement>(null);
+  const viewportRef = useRef<SVGSVGElement>(null);
   const statusRef = useRef<HTMLParagraphElement>(null);
 
   const [size, setSize] = useState({
@@ -28,18 +29,33 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
     height: 1,
   });
   const [imageReady, setImageReady] = useState(false);
+  const [svgReady, setSvgReady] = useState(false);
   const [mode, setMode] = useState<"lens" | "red" | "off">("lens");
 
-  const id = "glass-svg-" + useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const baseId = "glass-svg-" + useId().replace(/[^a-zA-Z0-9_-]/g, "");
+
+  const id = baseId + "-" + Number(svgReady);
 
   useEffect(() => {
     const scene = sceneRef.current;
     const card = cardRef.current;
     const copy = copyRef.current;
+    const viewport = viewportRef.current;
+    const original = scene?.querySelector("img");
     const scrollRoot = document.scrollingElement;
     const Timeline = (window as NativeScrollWindow).ScrollTimeline;
 
-    if (!scene || !card || !copy || !scrollRoot) return;
+    if (
+      !scene ||
+      !card ||
+      !copy ||
+      !viewport ||
+      !original ||
+      !scrollRoot ||
+      !imageReady
+    ) {
+      return;
+    }
 
     if (!Timeline) {
       if (statusRef.current) {
@@ -63,11 +79,15 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
     function measure() {
       frame = 0;
 
-      const photo = scene!.getBoundingClientRect();
-      const rect = card!.getBoundingClientRect();
-      const width = card!.clientWidth;
-      const height = card!.clientHeight;
+      const photo = original!.getBoundingClientRect();
+      const rect = viewport!.getBoundingClientRect();
 
+      const width = rect.width;
+      const height = rect.height;
+      const naturalWidth = original!.naturalWidth;
+      const naturalHeight = original!.naturalHeight;
+
+      if (!naturalWidth || !naturalHeight) return;
       if (width <= 0 || height <= 0) return;
 
       const sizeKey = width + ":" + height;
@@ -77,24 +97,41 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
         setSize({ width, height });
       }
 
-      const x = photo.left - rect.left - card!.clientLeft;
+      // De originele foto gebruikt object-fit: cover
+      // met object-position: center.
+      const coverScale = Math.max(
+        photo.width / naturalWidth,
+        photo.height / naturalHeight,
+      );
 
-      const y = photo.top - rect.top - card!.clientTop - scrollRoot!.scrollTop;
+      const renderedWidth = naturalWidth * coverScale;
+      const renderedHeight = naturalHeight * coverScale;
+
+      const x = photo.left - rect.left + (photo.width - renderedWidth) / 2;
+
+      const y =
+        photo.top -
+        rect.top +
+        (photo.height - renderedHeight) / 2 -
+        scrollRoot!.scrollTop;
 
       const maxScroll = Math.max(
         0,
         scrollRoot!.scrollHeight - scrollRoot!.clientHeight,
       );
 
-      copy!.setAttribute("width", String(photo.width));
-      copy!.setAttribute("height", String(photo.height));
+      // Gebruik echte SVG-pixels, zonder tweede cover-berekening.
+      copy!.setAttribute("width", String(renderedWidth));
+      copy!.setAttribute("height", String(renderedHeight));
+      copy!.setAttribute("x", String(x));
+      copy!.setAttribute("y", String(y));
 
       const keyframes: Keyframe[] = [
         {
-          transform: "translate(" + x + "px," + y + "px)",
+          transform: "translateY(0px)",
         },
         {
-          transform: "translate(" + x + "px," + (y + maxScroll) + "px)",
+          transform: "translateY(" + maxScroll + "px)",
         },
       ];
 
@@ -137,7 +174,7 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
       window.removeEventListener("resize", schedule);
       window.visualViewport?.removeEventListener("resize", schedule);
     };
-  }, [photoSource]);
+  }, [photoSource, imageReady, svgReady]);
 
   return (
     <main className={styles.page}>
@@ -178,7 +215,8 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
         <h1>SVG-glastest</h1>
 
         <p ref={statusRef}>
-          Test eerst rood. Vergelijk daarna de vervorming met de lens uit.
+          Controleer eerst de uitlijning met de lens uit. Test daarna rood en de
+          vervorming.
         </p>
       </div>
 
@@ -189,11 +227,10 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
       >
         <div className={styles.clip} aria-hidden="true">
           <svg
+            ref={viewportRef}
             xmlns="http://www.w3.org/2000/svg"
             width="100%"
             height="100%"
-            viewBox={"0 0 " + size.width + " " + size.height}
-            preserveAspectRatio="none"
             style={{
               position: "absolute",
               inset: 0,
@@ -269,9 +306,8 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
                 ref={copyRef}
                 href={photoSource}
                 xlinkHref={photoSource}
-                x="0"
-                y="0"
-                preserveAspectRatio="xMidYMid slice"
+                onLoad={() => setSvgReady(true)}
+                preserveAspectRatio="none"
                 style={{
                   transformOrigin: "0 0",
                   transformBox: "view-box",
