@@ -23,6 +23,14 @@ type ScopeProps = HTMLAttributes<HTMLDivElement> & {
 
 type GlassButtonProps = ButtonHTMLAttributes<HTMLButtonElement>;
 
+type Material = {
+  element: HTMLElement;
+  borderLeft: number;
+  borderTop: number;
+  radius: string;
+  visible: boolean;
+};
+
 const sceneProperties = [
   "--glass-photo-image",
   "--glass-photo-x",
@@ -62,19 +70,25 @@ function usePhotoRefraction(root: { readonly current: HTMLDivElement | null }) {
       return;
     }
 
+    const scope = container;
+
     const reducedTransparency = window.matchMedia(
       "(prefers-reduced-transparency: reduce)",
     );
 
-    let frame = 0;
-    let image: HTMLImageElement | null = null;
-    let surfaces: HTMLElement[] = [];
-    let dirty = true;
+    const materials = new Map<HTMLElement, Material>();
+    const activeMaterials = new Set<Material>();
 
-    const touched = new Set<HTMLElement>();
+    let image: HTMLImageElement | null = null;
+    let frame = 0;
+    let materialsDirty = true;
+    let forceUpdate = true;
+    let lastSignature = "";
 
     function disable(element: HTMLElement) {
-      element.removeAttribute("data-glass-photo");
+      if (element.hasAttribute("data-glass-photo")) {
+        element.removeAttribute("data-glass-photo");
+      }
     }
 
     function clear(element: HTMLElement) {
@@ -85,34 +99,97 @@ function usePhotoRefraction(root: { readonly current: HTMLDivElement | null }) {
       }
     }
 
-    function update() {
-      frame = 0;
+    const intersectionObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const material = materials.get(entry.target as HTMLElement);
+          if (!material) continue;
 
-      if (dirty) {
-        surfaces = Array.from(
-          container!.querySelectorAll<HTMLElement>(materialSelector),
-        );
-        dirty = false;
+          material.visible = entry.isIntersecting;
 
-        for (const element of touched) {
-          if (!container!.contains(element)) {
-            clear(element);
-            touched.delete(element);
+          if (entry.isIntersecting) {
+            activeMaterials.add(material);
+          } else {
+            activeMaterials.delete(material);
+            disable(material.element);
           }
         }
+
+        forceUpdate = true;
+        schedule();
+      },
+      {
+        rootMargin: "100px 0px",
+        threshold: 0,
+      },
+    );
+
+    function refreshMaterials() {
+      materialsDirty = false;
+
+      const elements = new Set(
+        scope.querySelectorAll<HTMLElement>(materialSelector),
+      );
+
+      for (const [element, material] of materials) {
+        if (!elements.has(element)) {
+          intersectionObserver.unobserve(element);
+          activeMaterials.delete(material);
+          materials.delete(element);
+          clear(element);
+        }
+      }
+
+      // Lees vaste stijlen alleen wanneer de layout of inhoud verandert.
+      const measurements = Array.from(elements, (element) => {
+        const computed = window.getComputedStyle(element);
+
+        return {
+          element,
+          borderLeft: Number.parseFloat(computed.borderLeftWidth) || 0,
+          borderTop: Number.parseFloat(computed.borderTopWidth) || 0,
+          radius: computed.borderRadius,
+        };
+      });
+
+      for (const measurement of measurements) {
+        const existing = materials.get(measurement.element);
+
+        if (existing) {
+          existing.borderLeft = measurement.borderLeft;
+          existing.borderTop = measurement.borderTop;
+          existing.radius = measurement.radius;
+          continue;
+        }
+
+        const material: Material = {
+          ...measurement,
+          visible: false,
+        };
+
+        materials.set(material.element, material);
+        intersectionObserver.observe(material.element);
+      }
+    }
+
+    function update() {
+      if (materialsDirty) {
+        refreshMaterials();
+        forceUpdate = true;
       }
 
       if (
         reducedTransparency.matches ||
-        container!.getAttribute("data-photo-ready") !== "true" ||
+        scope.getAttribute("data-photo-ready") !== "true" ||
         !image ||
         !image.complete ||
         !image.naturalWidth
       ) {
-        for (const element of touched) {
-          disable(element);
+        for (const material of activeMaterials) {
+          disable(material.element);
         }
 
+        lastSignature = "";
         return;
       }
 
@@ -120,66 +197,76 @@ function usePhotoRefraction(root: { readonly current: HTMLDivElement | null }) {
       const source = image.currentSrc || image.src;
 
       if (!source || photo.width <= 1 || photo.height <= 1) {
-        for (const element of touched) {
-          disable(element);
+        for (const material of activeMaterials) {
+          disable(material.element);
         }
 
+        lastSignature = "";
         return;
       }
 
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
+      const signature = [
+        window.scrollX,
+        window.scrollY,
+        window.innerWidth,
+        window.innerHeight,
+        photo.left,
+        photo.top,
+        photo.width,
+        photo.height,
+        source,
+      ].join("|");
 
-      const measurements = surfaces.map((element) => {
-        const rect = element.getBoundingClientRect();
+      if (!forceUpdate && signature === lastSignature) {
+        return;
+      }
 
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < viewportHeight &&
-          rect.right > 0 &&
-          rect.left < viewportWidth;
+      forceUpdate = false;
+      lastSignature = signature;
+
+      const sourceValue = `url(${JSON.stringify(source)})`;
+      const widthValue = `${photo.width}px`;
+      const heightValue = `${photo.height}px`;
+
+      // Eerst alle posities lezen, daarna pas styles schrijven.
+      const measurements = Array.from(activeMaterials, (material) => {
+        const rect = material.element.getBoundingClientRect();
 
         const overlaps =
-          visible &&
+          rect.width > 0 &&
+          rect.height > 0 &&
           rect.bottom > photo.top &&
           rect.top < photo.bottom &&
           rect.right > photo.left &&
           rect.left < photo.right;
 
         if (!overlaps) {
-          return { element, values: null };
+          return { material, values: null };
         }
 
-        const computed = window.getComputedStyle(element);
-
-        const left =
-          rect.left + (Number.parseFloat(computed.borderLeftWidth) || 0);
-        const top =
-          rect.top + (Number.parseFloat(computed.borderTopWidth) || 0);
-
-        const x = photo.left - left;
-        const y = photo.top - top;
+        const x = photo.left - rect.left - material.borderLeft;
+        const y = photo.top - rect.top - material.borderTop;
 
         return {
-          element,
+          material,
           values: {
-            "--glass-photo-image": `url(${JSON.stringify(source)})`,
+            "--glass-photo-image": sourceValue,
             "--glass-photo-x": `${x}px`,
             "--glass-photo-y": `${y}px`,
-            "--glass-photo-width": `${photo.width}px`,
-            "--glass-photo-height": `${photo.height}px`,
+            "--glass-photo-width": widthValue,
+            "--glass-photo-height": heightValue,
             "--glass-photo-fade-start": `${y + photo.height * 0.35}px`,
             "--glass-photo-fade-middle": `${y + photo.height * 0.55}px`,
             "--glass-photo-fade-end": `${y + photo.height * 0.78}px`,
             "--glass-photo-bottom": `${y + photo.height}px`,
-            "--glass-photo-radius": computed.borderRadius,
+            "--glass-photo-radius": material.radius,
           },
         };
       });
 
-      for (const { element, values } of measurements) {
+      for (const { material, values } of measurements) {
+        const element = material.element;
+
         if (!values) {
           disable(element);
           continue;
@@ -189,8 +276,6 @@ function usePhotoRefraction(root: { readonly current: HTMLDivElement | null }) {
           setProperty(element, property, value);
         }
 
-        touched.add(element);
-
         if (!element.hasAttribute("data-glass-photo")) {
           element.setAttribute("data-glass-photo", "");
         }
@@ -198,75 +283,101 @@ function usePhotoRefraction(root: { readonly current: HTMLDivElement | null }) {
     }
 
     function schedule() {
-      if (!frame) {
-        frame = window.requestAnimationFrame(update);
-      }
+      if (frame) return;
+
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        update();
+      });
     }
 
-    const geometryObserver = new MutationObserver(() => {
+    function updateImmediately() {
       if (frame) {
         window.cancelAnimationFrame(frame);
         frame = 0;
       }
 
       update();
+    }
+
+    function refreshLayout() {
+      materialsDirty = true;
+      forceUpdate = true;
+      schedule();
+    }
+
+    const geometryObserver = new MutationObserver(() => {
+      // De achtergrondfoto is net verplaatst of vergroot.
+      // Werk meteen bij, zonder een extra animation frame te wachten.
+      updateImmediately();
     });
 
-    const resizeObserver = new ResizeObserver(schedule);
+    const resizeObserver = new ResizeObserver(refreshLayout);
 
     function findImage() {
-      const next = container!.querySelector<HTMLImageElement>(
+      const next = scope.querySelector<HTMLImageElement>(
         ':scope > div[aria-hidden="true"] > img',
       );
 
       if (next === image) return;
 
-      image?.removeEventListener("load", schedule);
+      image?.removeEventListener("load", refreshLayout);
       geometryObserver.disconnect();
-      resizeObserver.disconnect();
-
-      image = next;
 
       if (image) {
-        image.addEventListener("load", schedule);
-        resizeObserver.observe(image);
+        resizeObserver.unobserve(image);
+      }
 
-        if (image.parentElement) {
-          resizeObserver.observe(image.parentElement);
+      image = next;
+      forceUpdate = true;
+      lastSignature = "";
 
-          geometryObserver.observe(image.parentElement, {
-            attributes: true,
-            attributeFilter: ["style"],
-          });
-        }
+      if (!image) return;
+
+      image.addEventListener("load", refreshLayout);
+      resizeObserver.observe(image);
+
+      if (image.parentElement) {
+        geometryObserver.observe(image.parentElement, {
+          attributes: true,
+          attributeFilter: ["style"],
+        });
       }
     }
 
     const contentObserver = new MutationObserver(() => {
-      dirty = true;
+      materialsDirty = true;
+      forceUpdate = true;
       findImage();
       schedule();
     });
 
-    contentObserver.observe(container, {
+    contentObserver.observe(scope, {
       childList: true,
       subtree: true,
       attributes: true,
       attributeFilter: ["data-photo-ready"],
     });
 
+    resizeObserver.observe(scope);
+
     findImage();
     schedule();
 
-    window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
-    window.visualViewport?.addEventListener("resize", schedule);
-    window.visualViewport?.addEventListener("scroll", schedule);
-    reducedTransparency.addEventListener("change", schedule);
+    // Geen extra requestAnimationFrame tussen scroll en glasupdate.
+    window.addEventListener("scroll", updateImmediately, {
+      passive: true,
+    });
+    window.addEventListener("resize", refreshLayout);
 
-    container.addEventListener("animationend", schedule, true);
-    container.addEventListener("transitionend", schedule, true);
-    container.addEventListener("toggle", schedule, true);
+    window.visualViewport?.addEventListener("resize", refreshLayout);
+    window.visualViewport?.addEventListener("scroll", updateImmediately);
+
+    reducedTransparency.addEventListener("change", refreshLayout);
+
+    scope.addEventListener("animationend", refreshLayout, true);
+    scope.addEventListener("transitionend", refreshLayout, true);
+    scope.addEventListener("toggle", refreshLayout, true);
 
     return () => {
       window.cancelAnimationFrame(frame);
@@ -274,20 +385,23 @@ function usePhotoRefraction(root: { readonly current: HTMLDivElement | null }) {
       contentObserver.disconnect();
       geometryObserver.disconnect();
       resizeObserver.disconnect();
+      intersectionObserver.disconnect();
 
-      image?.removeEventListener("load", schedule);
+      image?.removeEventListener("load", refreshLayout);
 
-      window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
-      window.visualViewport?.removeEventListener("resize", schedule);
-      window.visualViewport?.removeEventListener("scroll", schedule);
-      reducedTransparency.removeEventListener("change", schedule);
+      window.removeEventListener("scroll", updateImmediately);
+      window.removeEventListener("resize", refreshLayout);
 
-      container.removeEventListener("animationend", schedule, true);
-      container.removeEventListener("transitionend", schedule, true);
-      container.removeEventListener("toggle", schedule, true);
+      window.visualViewport?.removeEventListener("resize", refreshLayout);
+      window.visualViewport?.removeEventListener("scroll", updateImmediately);
 
-      for (const element of touched) {
+      reducedTransparency.removeEventListener("change", refreshLayout);
+
+      scope.removeEventListener("animationend", refreshLayout, true);
+      scope.removeEventListener("transitionend", refreshLayout, true);
+      scope.removeEventListener("toggle", refreshLayout, true);
+
+      for (const element of materials.keys()) {
         clear(element);
       }
     };
