@@ -1,0 +1,170 @@
+.page {
+  position: relative;
+  isolation: isolate;
+  min-height: 200svh;
+  padding: 120px 20px 100px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.header {
+  position: fixed;
+  z-index: 20;
+  inset: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 84px;
+  padding: 16px 20px;
+  background: var(--bg);
+}
+
+.header a {
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.header button {
+  min-width: 96px;
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.header button:focus-visible,
+.header a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.scene {
+  position: fixed;
+  z-index: -1;
+  top: 84px;
+  left: 0;
+  width: 100%;
+  height: min(80svh, 800px);
+  overflow: hidden;
+}
+
+.photo {
+  object-fit: cover;
+  object-position: center;
+}
+
+.intro {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--bg);
+}
+
+.intro h1 {
+  margin: 0 0 8px;
+  font-size: 25px;
+}
+
+.intro p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.definitions {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.card {
+  position: relative;
+  isolation: isolate;
+  width: min(100%, 440px);
+  height: 140px;
+  margin: 30svh auto 0;
+  border: 1px solid rgb(255 255 255 / 65%);
+  border-radius: 26px;
+  box-shadow:
+    0 14px 35px rgb(0 0 0 / 16%),
+    inset 0 1px 1px rgb(255 255 255 / 70%);
+}
+
+.clip {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--bg);
+}
+
+.optics {
+  position: absolute;
+  inset: 0;
+}
+
+.copy {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.tint {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--glass-sheen), var(--glass-bg);
+  box-shadow:
+    inset 1px 2px 2px rgb(255 255 255 / 50%),
+    inset -1px -2px 2px rgb(0 0 0 / 20%);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  height: 100%;
+  padding: 20px 24px;
+}
+
+.label,
+.description {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.content strong {
+  font-size: 28px;
+  letter-spacing: -1px;
+}
+
+.card:not([data-ready="true"]) .clip {
+  visibility: hidden;
+}
+
+.end {
+  max-width: 440px;
+  margin: 60svh auto 0;
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--surface);
+  font-size: 13px;
+  text-align: center;
+}
