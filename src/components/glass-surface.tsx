@@ -23,26 +23,20 @@ type ScopeProps = HTMLAttributes<HTMLDivElement> & {
 
 type GlassButtonProps = ButtonHTMLAttributes<HTMLButtonElement>;
 
-type Material = {
-  element: HTMLElement;
-  borderLeft: number;
-  borderTop: number;
-  radius: string;
-  visible: boolean;
+type NativeScrollWindow = Window & {
+  ScrollTimeline?: new (options: {
+    source: Element;
+    axis: "block";
+  }) => AnimationTimeline;
 };
 
-const sceneProperties = [
-  "--glass-photo-image",
-  "--glass-photo-x",
-  "--glass-photo-y",
-  "--glass-photo-width",
-  "--glass-photo-height",
-  "--glass-photo-fade-start",
-  "--glass-photo-fade-middle",
-  "--glass-photo-fade-end",
-  "--glass-photo-bottom",
-  "--glass-photo-radius",
-] as const;
+type PhotoLayer = {
+  clip: HTMLSpanElement;
+  mover: HTMLSpanElement;
+  texture: HTMLSpanElement;
+  effect: KeyframeEffect | null;
+  animation: Animation | null;
+};
 
 const materialSelector = [
   "." + styles.surface + ":not(." + styles.solid + ")",
@@ -56,328 +50,328 @@ const materialSelector = [
   "#car-overview > div:first-child > div > div:last-child > div:last-child > div:last-child button",
 ].join(",");
 
-function setProperty(element: HTMLElement, property: string, value: string) {
-  if (element.style.getPropertyValue(property) !== value) {
-    element.style.setProperty(property, value);
+function isFixed(element: HTMLElement) {
+  let current: HTMLElement | null = element;
+
+  while (current) {
+    if (window.getComputedStyle(current).position === "fixed") {
+      return true;
+    }
+
+    current = current.parentElement;
   }
+
+  return false;
 }
 
 function usePhotoRefraction(root: { readonly current: HTMLDivElement | null }) {
   useEffect(() => {
-    const container = root.current;
+    const scope = root.current;
+    const Timeline = (window as NativeScrollWindow).ScrollTimeline;
+    const scrollRoot = document.scrollingElement;
 
-    if (!container || !window.CSS.supports("-webkit-touch-callout", "none")) {
+    if (
+      !scope ||
+      !Timeline ||
+      !scrollRoot ||
+      !window.CSS.supports("-webkit-touch-callout", "none")
+    ) {
       return;
     }
 
-    const scope = container;
+    const container = scope;
+    const timeline = new Timeline({
+      source: scrollRoot,
+      axis: "block",
+    });
 
     const reducedTransparency = window.matchMedia(
       "(prefers-reduced-transparency: reduce)",
     );
 
-    const materials = new Map<HTMLElement, Material>();
-    const activeMaterials = new Set<Material>();
+    const layers = new Map<HTMLElement, PhotoLayer>();
 
     let image: HTMLImageElement | null = null;
     let frame = 0;
-    let materialsDirty = true;
-    let forceUpdate = true;
-    let lastSignature = "";
+    let layoutDirty = true;
+    let lastScene = "";
 
-    function disable(element: HTMLElement) {
-      if (element.hasAttribute("data-glass-photo")) {
-        element.removeAttribute("data-glass-photo");
+    function removeLayer(element: HTMLElement, layer: PhotoLayer) {
+      layer.animation?.cancel();
+      layer.clip.remove();
+      element.removeAttribute("data-glass-native");
+      layers.delete(element);
+    }
+
+    function clearLayers() {
+      for (const [element, layer] of layers) {
+        removeLayer(element, layer);
       }
     }
 
-    function clear(element: HTMLElement) {
-      disable(element);
+    function createLayer(element: HTMLElement): PhotoLayer {
+      const clip = document.createElement("span");
+      const mover = document.createElement("span");
+      const texture = document.createElement("span");
 
-      for (const property of sceneProperties) {
-        element.style.removeProperty(property);
-      }
-    }
+      clip.className = styles.photoClip;
+      mover.className = styles.photoMover;
+      texture.className = styles.photoTexture;
 
-    const intersectionObserver = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const material = materials.get(entry.target as HTMLElement);
-          if (!material) continue;
+      clip.setAttribute("data-glass-decoration", "");
+      clip.setAttribute("aria-hidden", "true");
 
-          material.visible = entry.isIntersecting;
+      mover.append(texture);
+      clip.append(mover);
+      element.append(clip);
+      element.setAttribute("data-glass-native", "");
 
-          if (entry.isIntersecting) {
-            activeMaterials.add(material);
-          } else {
-            activeMaterials.delete(material);
-            disable(material.element);
-          }
-        }
+      const layer: PhotoLayer = {
+        clip,
+        mover,
+        texture,
+        effect: null,
+        animation: null,
+      };
 
-        forceUpdate = true;
-        schedule();
-      },
-      {
-        rootMargin: "100px 0px",
-        threshold: 0,
-      },
-    );
-
-    function refreshMaterials() {
-      materialsDirty = false;
-
-      const elements = new Set(
-        scope.querySelectorAll<HTMLElement>(materialSelector),
-      );
-
-      for (const [element, material] of materials) {
-        if (!elements.has(element)) {
-          intersectionObserver.unobserve(element);
-          activeMaterials.delete(material);
-          materials.delete(element);
-          clear(element);
-        }
-      }
-
-      // Lees vaste stijlen alleen wanneer de layout of inhoud verandert.
-      const measurements = Array.from(elements, (element) => {
-        const computed = window.getComputedStyle(element);
-
-        return {
-          element,
-          borderLeft: Number.parseFloat(computed.borderLeftWidth) || 0,
-          borderTop: Number.parseFloat(computed.borderTopWidth) || 0,
-          radius: computed.borderRadius,
-        };
-      });
-
-      for (const measurement of measurements) {
-        const existing = materials.get(measurement.element);
-
-        if (existing) {
-          existing.borderLeft = measurement.borderLeft;
-          existing.borderTop = measurement.borderTop;
-          existing.radius = measurement.radius;
-          continue;
-        }
-
-        const material: Material = {
-          ...measurement,
-          visible: false,
-        };
-
-        materials.set(material.element, material);
-        intersectionObserver.observe(material.element);
-      }
+      layers.set(element, layer);
+      return layer;
     }
 
     function update() {
-      if (materialsDirty) {
-        refreshMaterials();
-        forceUpdate = true;
-      }
+      frame = 0;
 
       if (
         reducedTransparency.matches ||
-        scope.getAttribute("data-photo-ready") !== "true" ||
+        container.getAttribute("data-photo-ready") !== "true" ||
         !image ||
         !image.complete ||
         !image.naturalWidth
       ) {
-        for (const material of activeMaterials) {
-          disable(material.element);
-        }
-
-        lastSignature = "";
+        clearLayers();
+        lastScene = "";
         return;
       }
 
       const photo = image.getBoundingClientRect();
-      const source = image.currentSrc || image.src;
 
-      if (!source || photo.width <= 1 || photo.height <= 1) {
-        for (const material of activeMaterials) {
-          disable(material.element);
-        }
-
-        lastSignature = "";
+      if (photo.width <= 1 || photo.height <= 1) {
         return;
       }
 
-      const signature = [
-        window.scrollX,
-        window.scrollY,
-        window.innerWidth,
-        window.innerHeight,
+      const source = image.currentSrc || image.src;
+
+      const maxScroll = Math.max(
+        0,
+        scrollRoot!.scrollHeight - scrollRoot!.clientHeight,
+      );
+
+      const scene = [
+        source,
         photo.left,
         photo.top,
         photo.width,
         photo.height,
-        source,
+        maxScroll,
       ].join("|");
 
-      if (!forceUpdate && signature === lastSignature) {
+      // Gewoon scrollen vereist geen nieuwe metingen of styles.
+      if (!layoutDirty && scene === lastScene) {
         return;
       }
 
-      forceUpdate = false;
-      lastSignature = signature;
+      layoutDirty = false;
+      lastScene = scene;
 
-      const sourceValue = `url(${JSON.stringify(source)})`;
-      const widthValue = `${photo.width}px`;
-      const heightValue = `${photo.height}px`;
+      const elements = new Set(
+        container.querySelectorAll<HTMLElement>(materialSelector),
+      );
 
-      // Eerst alle posities lezen, daarna pas styles schrijven.
-      const measurements = Array.from(activeMaterials, (material) => {
-        const rect = material.element.getBoundingClientRect();
-
-        const overlaps =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > photo.top &&
-          rect.top < photo.bottom &&
-          rect.right > photo.left &&
-          rect.left < photo.right;
-
-        if (!overlaps) {
-          return { material, values: null };
+      for (const [element, layer] of layers) {
+        if (!elements.has(element) || layer.clip.parentElement !== element) {
+          removeLayer(element, layer);
         }
+      }
 
-        const x = photo.left - rect.left - material.borderLeft;
-        const y = photo.top - rect.top - material.borderTop;
+      const scrollY = scrollRoot!.scrollTop;
+
+      const measurements = Array.from(elements, (element) => {
+        const rect = element.getBoundingClientRect();
+        const computed = window.getComputedStyle(element);
 
         return {
-          material,
-          values: {
-            "--glass-photo-image": sourceValue,
-            "--glass-photo-x": `${x}px`,
-            "--glass-photo-y": `${y}px`,
-            "--glass-photo-width": widthValue,
-            "--glass-photo-height": heightValue,
-            "--glass-photo-fade-start": `${y + photo.height * 0.35}px`,
-            "--glass-photo-fade-middle": `${y + photo.height * 0.55}px`,
-            "--glass-photo-fade-end": `${y + photo.height * 0.78}px`,
-            "--glass-photo-bottom": `${y + photo.height}px`,
-            "--glass-photo-radius": material.radius,
-          },
+          element,
+          fixed: isFixed(element),
+          x:
+            photo.left -
+            rect.left -
+            (Number.parseFloat(computed.borderLeftWidth) || 0),
+          y:
+            photo.top -
+            rect.top -
+            (Number.parseFloat(computed.borderTopWidth) || 0),
         };
       });
 
-      for (const { material, values } of measurements) {
-        const element = material.element;
+      for (const { element, fixed, x, y } of measurements) {
+        const layer = layers.get(element) ?? createLayer(element);
 
-        if (!values) {
-          disable(element);
+        layer.mover.style.width = photo.width + "px";
+        layer.mover.style.height = photo.height + "px";
+
+        layer.texture.style.backgroundImage =
+          "linear-gradient(to bottom, transparent 35%, " +
+          "color-mix(in srgb, var(--bg) 15%, transparent) 55%, " +
+          "color-mix(in srgb, var(--bg) 65%, transparent) 78%, " +
+          "var(--bg) 100%), url(" +
+          JSON.stringify(source) +
+          ")";
+
+        if (fixed || maxScroll === 0) {
+          layer.animation?.cancel();
+          layer.animation = null;
+          layer.effect = null;
+
+          layer.mover.style.transform =
+            "translate3d(" + x + "px," + y + "px,0)";
+
           continue;
         }
 
-        for (const [property, value] of Object.entries(values)) {
-          setProperty(element, property, value);
-        }
+        const startY = y - scrollY;
 
-        if (!element.hasAttribute("data-glass-photo")) {
-          element.setAttribute("data-glass-photo", "");
+        const keyframes: Keyframe[] = [
+          {
+            transform: "translate3d(" + x + "px," + startY + "px,0)",
+          },
+          {
+            transform:
+              "translate3d(" + x + "px," + (startY + maxScroll) + "px,0)",
+          },
+        ];
+
+        if (layer.effect) {
+          layer.effect.setKeyframes(keyframes);
+        } else {
+          layer.effect = new KeyframeEffect(layer.mover, keyframes, {
+            duration: "auto",
+            fill: "both",
+            easing: "linear",
+          });
+
+          layer.animation = new Animation(layer.effect, timeline);
+          layer.animation.play();
         }
       }
     }
 
     function schedule() {
-      if (frame) return;
-
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        update();
-      });
-    }
-
-    function updateImmediately() {
-      if (frame) {
-        window.cancelAnimationFrame(frame);
-        frame = 0;
+      if (!frame) {
+        frame = window.requestAnimationFrame(update);
       }
-
-      update();
     }
 
     function refreshLayout() {
-      materialsDirty = true;
-      forceUpdate = true;
+      layoutDirty = true;
       schedule();
     }
 
     const geometryObserver = new MutationObserver(() => {
-      // De achtergrondfoto is net verplaatst of vergroot.
-      // Werk meteen bij, zonder een extra animation frame te wachten.
-      updateImmediately();
+      // De bestaande hero vergroot nog tijdens de eerste 220px scroll.
+      // Alleen een gewijzigde foto vereist nieuwe startposities.
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
+
+      frame = 0;
+      update();
     });
 
-    const resizeObserver = new ResizeObserver(refreshLayout);
-
     function findImage() {
-      const next = scope.querySelector<HTMLImageElement>(
+      const next = container.querySelector<HTMLImageElement>(
         ':scope > div[aria-hidden="true"] > img',
       );
 
-      if (next === image) return;
+      if (next === image) {
+        return;
+      }
 
       image?.removeEventListener("load", refreshLayout);
       geometryObserver.disconnect();
-
-      if (image) {
-        resizeObserver.unobserve(image);
-      }
-
       image = next;
-      forceUpdate = true;
-      lastSignature = "";
 
-      if (!image) return;
+      image?.addEventListener("load", refreshLayout);
 
-      image.addEventListener("load", refreshLayout);
-      resizeObserver.observe(image);
-
-      if (image.parentElement) {
+      if (image?.parentElement) {
         geometryObserver.observe(image.parentElement, {
           attributes: true,
           attributeFilter: ["style"],
         });
       }
+
+      layoutDirty = true;
+      lastScene = "";
     }
 
-    const contentObserver = new MutationObserver(() => {
-      materialsDirty = true;
-      forceUpdate = true;
+    function decorationMutation(record: MutationRecord) {
+      if (record.type !== "childList") {
+        return false;
+      }
+
+      if (
+        record.target instanceof Element &&
+        record.target.closest("[data-glass-decoration]")
+      ) {
+        return true;
+      }
+
+      const changed = [...record.addedNodes, ...record.removedNodes];
+
+      return (
+        changed.length > 0 &&
+        changed.every(
+          (node) =>
+            node instanceof Element &&
+            node.hasAttribute("data-glass-decoration"),
+        )
+      );
+    }
+
+    const contentObserver = new MutationObserver((records) => {
+      if (records.every(decorationMutation)) {
+        return;
+      }
+
       findImage();
-      schedule();
+      refreshLayout();
     });
 
-    contentObserver.observe(scope, {
+    contentObserver.observe(container, {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["data-photo-ready"],
+      attributeFilter: ["data-photo-ready", "open", "class"],
     });
 
-    resizeObserver.observe(scope);
+    const resizeObserver = new ResizeObserver(refreshLayout);
+
+    resizeObserver.observe(container);
+    resizeObserver.observe(document.documentElement);
 
     findImage();
     schedule();
 
-    // Geen extra requestAnimationFrame tussen scroll en glasupdate.
-    window.addEventListener("scroll", updateImmediately, {
-      passive: true,
-    });
     window.addEventListener("resize", refreshLayout);
 
     window.visualViewport?.addEventListener("resize", refreshLayout);
-    window.visualViewport?.addEventListener("scroll", updateImmediately);
 
     reducedTransparency.addEventListener("change", refreshLayout);
 
-    scope.addEventListener("animationend", refreshLayout, true);
-    scope.addEventListener("transitionend", refreshLayout, true);
-    scope.addEventListener("toggle", refreshLayout, true);
+    container.addEventListener("animationend", refreshLayout, true);
+
+    container.addEventListener("transitionend", refreshLayout, true);
+
+    container.addEventListener("toggle", refreshLayout, true);
 
     return () => {
       window.cancelAnimationFrame(frame);
@@ -385,25 +379,22 @@ function usePhotoRefraction(root: { readonly current: HTMLDivElement | null }) {
       contentObserver.disconnect();
       geometryObserver.disconnect();
       resizeObserver.disconnect();
-      intersectionObserver.disconnect();
 
       image?.removeEventListener("load", refreshLayout);
 
-      window.removeEventListener("scroll", updateImmediately);
       window.removeEventListener("resize", refreshLayout);
 
       window.visualViewport?.removeEventListener("resize", refreshLayout);
-      window.visualViewport?.removeEventListener("scroll", updateImmediately);
 
       reducedTransparency.removeEventListener("change", refreshLayout);
 
-      scope.removeEventListener("animationend", refreshLayout, true);
-      scope.removeEventListener("transitionend", refreshLayout, true);
-      scope.removeEventListener("toggle", refreshLayout, true);
+      container.removeEventListener("animationend", refreshLayout, true);
 
-      for (const element of materials.keys()) {
-        clear(element);
-      }
+      container.removeEventListener("transitionend", refreshLayout, true);
+
+      container.removeEventListener("toggle", refreshLayout, true);
+
+      clearLayers();
     };
   }, [root]);
 }

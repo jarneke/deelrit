@@ -186,17 +186,12 @@
   backdrop-filter: none;
 }
 
-/* Buiten de fotoscène blijft de normale, lichte backdrop-blur actief. */
 @supports (-webkit-touch-callout: none) {
   .scope,
   .surface {
     --glass-svg-filter: none;
   }
 
-  /*
-   * Een echte afbeeldingslaag als SourceGraphic voor de SVG-filter.
-   * Geen backdrop-filter op dezelfde laag: de foto zelf wordt vervormd.
-   */
   .scope :global([data-glass-photo])::before {
     background-color: var(--bg);
     background-image:
@@ -324,5 +319,56 @@
       )
     )::after {
     background: var(--surface);
+  }
+}
+
+.scope .photoClip.photoClip {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  display: block;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: inherit;
+  background: var(--bg);
+  pointer-events: none;
+}
+
+.scope .photoMover.photoMover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.scope .photoTexture.photoTexture {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background-color: var(--bg);
+  background-position: center;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  filter: var(--glass-filter);
+  pointer-events: none;
+}
+
+.scope :global([data-glass-native])::before {
+  display: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .scope .photoClip.photoClip {
+    display: none;
   }
 }
