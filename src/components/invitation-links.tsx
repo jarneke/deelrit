@@ -7,6 +7,7 @@ import {
   revokeInvitationLink,
 } from "@/actions/invitation-links";
 import ActionButton from "./action-button";
+import GlassSurface from "./glass-surface";
 import styles from "./invitation-links.module.css";
 
 type Invitation = {
@@ -145,7 +146,7 @@ export default function InvitationLinks({
   }
 
   return (
-    <section className={styles.panel}>
+    <GlassSurface as="section" className={styles.panel}>
       <div className={styles.header}>
         <div>
           <h2>Deel deze auto</h2>
@@ -166,7 +167,7 @@ export default function InvitationLinks({
       </div>
 
       {link && (
-        <div className={styles.linkPanel}>
+        <GlassSurface className={styles.linkPanel}>
           <label htmlFor="invitation-link">Jouw uitnodigingslink</label>
 
           <div className={styles.linkRow}>
@@ -191,6 +192,7 @@ export default function InvitationLinks({
               icon="copy"
               iconOnly
               label="Uitnodigingslink kopiëren"
+              variant="glass"
               className={styles.secondary}
               onClick={copyLink}
               disabled={disabled}
@@ -201,7 +203,7 @@ export default function InvitationLinks({
             Iedereen met deze link kan als lid deelnemen. Kopieer of deel hem
             voordat je deze pagina verlaat.
           </p>
-        </div>
+        </GlassSurface>
       )}
 
       {error && (
@@ -223,28 +225,31 @@ export default function InvitationLinks({
       ) : (
         <ul className={styles.list}>
           {invitations.map((invitation) => (
-            <li key={invitation.id} className={styles.item}>
-              <div>
-                <p className={styles.itemTitle}>Uitnodigingslink</p>
-                <p className={styles.expiry}>
-                  Geldig tot {formatDate(invitation.expiresAt)}
-                </p>
-              </div>
+            <li key={invitation.id}>
+              <GlassSurface as="article" className={styles.item}>
+                <div>
+                  <p className={styles.itemTitle}>Uitnodigingslink</p>
+                  <p className={styles.expiry}>
+                    Geldig tot {formatDate(invitation.expiresAt)}
+                  </p>
+                </div>
 
-              <ActionButton
-                icon="close"
-                iconOnly
-                danger
-                loading={pending === invitation.id}
-                label={`Uitnodiging geldig tot ${formatDate(invitation.expiresAt)} intrekken`}
-                className={styles.secondary}
-                disabled={disabled}
-                onClick={() => revokeLink(invitation.id)}
-              />
+                <ActionButton
+                  icon="close"
+                  iconOnly
+                  danger
+                  loading={pending === invitation.id}
+                  label={`Uitnodiging geldig tot ${formatDate(invitation.expiresAt)} intrekken`}
+                  variant="glass"
+                  className={styles.secondary}
+                  disabled={disabled}
+                  onClick={() => revokeLink(invitation.id)}
+                />
+              </GlassSurface>
             </li>
           ))}
         </ul>
       )}
-    </section>
+    </GlassSurface>
   );
 }

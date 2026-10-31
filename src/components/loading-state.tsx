@@ -1,3 +1,4 @@
+import GlassSurface from "./glass-surface";
 import styles from "./loading-state.module.css";
 
 type Props = {
@@ -11,7 +12,7 @@ export default function LoadingState({
 }: Props) {
   return (
     <div className={styles.screen}>
-      <div
+      <GlassSurface
         className={styles.card}
         role="status"
         aria-live="polite"
@@ -43,7 +44,7 @@ export default function LoadingState({
 
         <h1 className={styles.title}>{title}</h1>
         <p className={styles.description}>{description}</p>
-      </div>
+      </GlassSurface>
     </div>
   );
 }

@@ -18,7 +18,6 @@
   color: var(--text);
 }
 
-/* Alle afrekenkaarten, inclusief de afrekenhistoriek. */
 .scope
   :global(
     :where(
@@ -143,10 +142,11 @@
   )::before {
   z-index: -2;
   background: transparent;
-  -webkit-backdrop-filter: blur(var(--glass-blur))
+  -webkit-backdrop-filter: blur(var(--glass-compatible-blur, var(--glass-blur)))
     saturate(var(--glass-saturation));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
-  filter: var(--glass-filter);
+  backdrop-filter: blur(var(--glass-compatible-blur, var(--glass-blur)))
+    saturate(var(--glass-saturation));
+  filter: var(--glass-svg-filter, var(--glass-filter));
 }
 
 .surface:not(.solid)::after,
@@ -185,6 +185,15 @@
   box-shadow: var(--shadow-card);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+}
+
+/* iOS WebKit: behoud glas zonder de problematische SVG-combinatie. */
+@supports (-webkit-touch-callout: none) {
+  .scope,
+  .surface {
+    --glass-svg-filter: none;
+    --glass-compatible-blur: 10px;
+  }
 }
 
 @supports not (

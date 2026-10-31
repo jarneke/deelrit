@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import LoadingState from "@/components/loading-state";
+import GlassSurface from "@/components/glass-surface";
 import styles from "./page.module.css";
 
 export default function LoginPage() {
@@ -83,7 +84,7 @@ function LoginForm() {
 
   return (
     <main className={styles.page}>
-      <div className={styles.container}>
+      <GlassSurface className={styles.container}>
         <p className={styles.logo}>
           deel<span>rit.</span>
         </p>
@@ -177,7 +178,7 @@ function LoginForm() {
         >
           {register ? "Al een account? Log in" : "Nog geen account? Registreer"}
         </button>
-      </div>
+      </GlassSurface>
     </main>
   );
 }

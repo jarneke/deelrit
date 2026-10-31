@@ -48,9 +48,9 @@ export default function CarCard({
         <div className={styles.footer}>
           <span>Open auto</span>
 
-          <span className={styles.arrow} aria-hidden="true">
+          <GlassSurface className={styles.arrow} aria-hidden="true">
             <AppIcon name="arrow-right" size={20} />
-          </span>
+          </GlassSurface>
         </div>
       </div>
     </Link>

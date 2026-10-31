@@ -94,7 +94,7 @@ function Card({
   note: string;
 }) {
   return (
-    <div className={styles.card}>
+    <div data-glass className={styles.card}>
       <span className={styles.muted}>{label}</span>
       <strong className={styles.value}>{value}</strong>
       <span className={styles.small}>{note}</span>
@@ -208,7 +208,7 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className={styles.card}>
+    <section data-glass className={styles.card}>
       <h2>{title}</h2>
       {note && <p className={styles.small}>{note}</p>}
       {children}
@@ -499,7 +499,7 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
           }
           note="Selecteer een balk voor de verdeling. De eerste en laatste week of maand kunnen gedeeltelijk zijn."
         >
-          <div className={styles.tabs} aria-label="Grafiekweergave">
+          <div data-glass className={styles.tabs} aria-label="Grafiekweergave">
             <button
               type="button"
               aria-pressed={measure === "distance"}
@@ -590,7 +590,7 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
         </Panel>
       </div>
 
-      <section className={styles.card}>
+      <section data-glass className={styles.card}>
         <h2>Wat kosten je ritten en je maandgebruik?</h2>
 
         <p className={styles.small}>
@@ -601,7 +601,7 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
         </p>
 
         <div className={styles.estimators}>
-          <label htmlFor={id + "-trip"}>
+          <label data-glass htmlFor={id + "-trip"}>
             Ritafstand (km)
             <input
               id={id + "-trip"}
@@ -621,7 +621,7 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
             </span>
           </label>
 
-          <div aria-live="polite">
+          <div data-glass aria-live="polite">
             <span className={styles.muted}>
               Maandkost bij je huidige gebruik
             </span>
@@ -738,7 +738,7 @@ export default function CarStatistics({ data }: { data: StatisticsData }) {
         </p>
       </Panel>
 
-      <details className={styles.more}>
+      <details data-glass className={styles.more}>
         <summary>Meer inzichten · trends, gebruik en tankperiodes</summary>
 
         <div className={styles.moreContent}>

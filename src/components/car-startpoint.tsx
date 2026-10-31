@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { saveCarStartpoint } from "@/actions/car-startpoint";
+import GlassSurface from "./glass-surface";
 import styles from "./car-startpoint.module.css";
 
 type Startpoint = {
@@ -64,7 +65,7 @@ export default function CarStartpoint({
   }
 
   return (
-    <section className={styles.panel}>
+    <GlassSurface as="section" className={styles.panel}>
       <h2>Startpunt instellen</h2>
 
       {isOwner ? (
@@ -120,6 +121,6 @@ export default function CarStartpoint({
           Een eigenaar moet eerst het startpunt van deze auto instellen.
         </p>
       )}
-    </section>
+    </GlassSurface>
   );
 }

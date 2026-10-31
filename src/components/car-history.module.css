@@ -11,16 +11,17 @@
 }
 
 .summaryIcon {
+  composes: surface from "./glass-surface.module.css";
   display: grid;
   place-items: center;
   flex: 0 0 38px;
   width: 38px;
   height: 38px;
-  border: 1px solid var(--glass-border);
+}
+
+.summaryIcon.summaryIcon {
   border-radius: 13px;
-  background: var(--glass-sheen), var(--glass-bg);
   color: var(--accent-text);
-  box-shadow: inset 0 1px 0 var(--glass-highlight);
 }
 
 .summaryText {

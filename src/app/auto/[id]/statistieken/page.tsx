@@ -9,6 +9,7 @@ import {
 import { logServerError } from "@/lib/server-error";
 import CarStatistics from "@/components/car-statistics";
 import LoadingState from "@/components/loading-state";
+import { GlassScope } from "@/components/glass-surface";
 import styles from "@/components/car-statistics.module.css";
 
 type Props = {
@@ -50,12 +51,16 @@ async function StatisticsContent({ params }: Props) {
 
   return (
     <main className={styles.page}>
-      <div className={styles.container}>
-        <Link href={"/auto/" + encodeURIComponent(id)} className={styles.back}>
+      <GlassScope className={styles.container}>
+        <Link
+          data-glass
+          href={"/auto/" + encodeURIComponent(id)}
+          className={styles.back}
+        >
           ← Terug naar je auto
         </Link>
 
-        <header className={styles.heading}>
+        <header data-glass className={styles.heading}>
           <p className={styles.eyebrow}>
             {loaded.carName}
             {loaded.licensePlate ? " · " + loaded.licensePlate : ""}
@@ -67,7 +72,7 @@ async function StatisticsContent({ params }: Props) {
         </header>
 
         <CarStatistics key={id} data={loaded.statistics} />
-      </div>
+      </GlassScope>
     </main>
   );
 }

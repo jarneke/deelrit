@@ -64,33 +64,12 @@ export default function CarWorkspace({
     const container = root.current;
     if (!container) return;
 
-    let target: HTMLElement | null = null;
+    const target = document.getElementById(id);
+    if (!target || !container.contains(target)) return;
 
-    if (id === "car-trip-history" || id === "car-refuel-history") {
-      const slot = container.querySelector(
-        id === "car-trip-history"
-          ? '[data-entry="trip"]'
-          : '[data-entry="refuel"]',
-      );
-
-      const history = slot?.querySelector<HTMLDetailsElement>(
-        ":scope > section > details",
-      );
-
-      if (history) {
-        history.id = id;
-        history.open = true;
-        target = history;
-      }
-    } else {
-      target = document.getElementById(id);
-
-      if (target instanceof HTMLDetailsElement) {
-        target.open = true;
-      }
+    if (target instanceof HTMLDetailsElement) {
+      target.open = true;
     }
-
-    if (!target) return;
 
     if (push) {
       window.history.pushState(null, "", "#" + id);
@@ -177,7 +156,10 @@ export default function CarWorkspace({
         layer.style.height = Math.max(1, height) + "px";
 
         const radius = 24 * (1 - progress);
-        const photoRadius = `${radius}px ${radius}px 0px 0px`;
+        const wideLayout = window.matchMedia("(min-width: 900px)").matches;
+        const photoRadius = wideLayout
+          ? `${radius}px 0px 0px 0px`
+          : `${radius}px ${radius}px 0px 0px`;
 
         layer.style.borderRadius = photoRadius;
         visual.style.borderRadius = photoRadius;

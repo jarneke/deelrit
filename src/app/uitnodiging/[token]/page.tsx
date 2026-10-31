@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import AcceptInvitation from "@/components/accept-invitation";
 import LoadingState from "@/components/loading-state";
+import GlassSurface from "@/components/glass-surface";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
@@ -98,7 +99,7 @@ async function Invitation({ params }: Props) {
 
   return (
     <main className={styles.page}>
-      <div className={styles.card}>
+      <GlassSurface className={styles.card}>
         <Link href="/" className={styles.logo}>
           deel<span>rit.</span>
         </Link>
@@ -116,11 +117,11 @@ async function Invitation({ params }: Props) {
             : "Deel deze auto en houd samen jullie ritten en kosten bij."}
         </p>
 
-        <p className={styles.identity}>
+        <GlassSurface className={styles.identity}>
           Ingelogd als <strong>{session.user.name}</strong>
           <br />
           {session.user.email}
-        </p>
+        </GlassSurface>
 
         {alreadyMember ? (
           <Link
@@ -136,7 +137,7 @@ async function Invitation({ params }: Props) {
         <Link href="/" className={styles.secondary}>
           Terug naar mijn auto’s
         </Link>
-      </div>
+      </GlassSurface>
     </main>
   );
 }
@@ -144,7 +145,7 @@ async function Invitation({ params }: Props) {
 function InvalidInvitation() {
   return (
     <main className={styles.page}>
-      <div className={styles.card}>
+      <GlassSurface className={styles.card}>
         <Link href="/" className={styles.logo}>
           deel<span>rit.</span>
         </Link>
@@ -159,7 +160,7 @@ function InvalidInvitation() {
         <Link href="/" className={styles.primary}>
           Naar mijn auto’s
         </Link>
-      </div>
+      </GlassSurface>
     </main>
   );
 }

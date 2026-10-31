@@ -1,17 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getCarTripHistoryPage } from "@/actions/car-history";
-import type { HistoryPage, TripHistoryItem } from "@/lib/car-history-types";
-import {
-  formatTripPayers,
-  getTripPayerId,
-  getTripPayers,
-} from "@/lib/car-trip-payers";
+import Link from "next/link";
+import { searchCarHistory } from "@/actions/car-history-browser";
+import type { HistoryBrowserData } from "@/lib/car-history-browser-types";
+import type { TripHistoryItem } from "@/lib/car-history-types";
+import { formatTripPayers, getTripPayers } from "@/lib/car-trip-payers";
 import ActionButton, { ActionGroup } from "./action-button";
 import AppIcon from "./app-icon";
+import GlassSurface from "./glass-surface";
 import UserAvatar from "./user-avatar";
-import styles from "./car-history.module.css";
+import styles from "./car-history-preview.module.css";
 
 type Props = {
   organizationId: string;
@@ -27,23 +26,21 @@ type Props = {
 };
 
 const numbers = new Intl.NumberFormat("nl-BE");
-const shares = ["", "100%", "50%", "1/3", "25%", "20%"];
 
-function formatTripMoment(trip: TripHistoryItem) {
-  if (!trip.endedAt) {
-    const date = new Intl.DateTimeFormat("nl-BE", {
-      dateStyle: "medium",
-      timeZone: "UTC",
-    }).format(new Date(`${trip.tripDate}T00:00:00Z`));
-
-    return `${date} · tijd onbekend`;
-  }
-
-  return new Intl.DateTimeFormat("nl-BE", {
+function formatMoment(trip: TripHistoryItem) {
+  const date = new Intl.DateTimeFormat("nl-BE", {
     dateStyle: "medium",
+    timeZone: "UTC",
+  }).format(new Date(trip.tripDate + "T12:00:00Z"));
+
+  if (!trip.endedAt) return date + " · tijd onbekend";
+
+  const time = new Intl.DateTimeFormat("nl-BE", {
     timeStyle: "short",
     timeZone: "Europe/Brussels",
   }).format(new Date(trip.endedAt));
+
+  return date + " · " + time;
 }
 
 export default function CarTripHistory({
@@ -52,21 +49,16 @@ export default function CarTripHistory({
   isOwner,
   total,
   totalDistance,
-  open,
   busy,
-  onOpenChange,
   onEdit,
   onDelete,
 }: Props) {
-  const [page, setPage] = useState(0);
-  const [retry, setRetry] = useState(0);
+  const [data, setData] = useState<HistoryBrowserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [data, setData] = useState<HistoryPage<TripHistoryItem> | null>(null);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
-    if (!open) return;
-
     let cancelled = false;
 
     async function load() {
@@ -74,7 +66,12 @@ export default function CarTripHistory({
       setError("");
 
       try {
-        const result = await getCarTripHistoryPage(organizationId, page);
+        const result = await searchCarHistory(organizationId, {
+          kind: "trips",
+          sort: "date-desc",
+          page: 1,
+          pageSize: 5,
+        });
 
         if (cancelled) return;
 
@@ -86,9 +83,7 @@ export default function CarTripHistory({
         setData(result.data);
       } catch {
         if (!cancelled) {
-          setError(
-            "De ritgeschiedenis kon niet worden geladen. Probeer opnieuw.",
-          );
+          setError("De recente ritten konden niet worden geladen.");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -100,7 +95,7 @@ export default function CarTripHistory({
     return () => {
       cancelled = true;
     };
-  }, [open, organizationId, page, retry]);
+  }, [organizationId, retry]);
 
   function canManage(trip: TripHistoryItem) {
     return (
@@ -112,241 +107,129 @@ export default function CarTripHistory({
     );
   }
 
-  function changePage(nextPage: number) {
-    if (busy || loading) return;
-
-    setLoading(true);
-    setError("");
-    setPage(nextPage);
-  }
-
-  const pageCount = data
-    ? Math.max(1, Math.ceil(data.total / data.pageSize))
-    : 1;
-
-  const firstIndex = data ? data.page * data.pageSize : 0;
+  const historyHref =
+    "/auto/" + encodeURIComponent(organizationId) + "/historiek?kind=trips";
 
   return (
-    <details
-      className={styles.history}
-      open={open}
-      onToggle={(event) => onOpenChange(event.currentTarget.open)}
+    <GlassSurface
+      id="car-trip-history"
+      className={styles.preview}
+      style={{ gridRow: 4 }}
+      tabIndex={-1}
+      aria-labelledby="car-trip-history-heading"
     >
-      <summary className={styles.summary}>
-        <span className={styles.summaryIcon} aria-hidden="true">
-          <AppIcon name="car" size={20} />
-        </span>
-
-        <span className={styles.summaryText}>
-          <span className={styles.summaryTitle}>
-            Rithistoriek
-            <span className={styles.count}>
-              {numbers.format(data?.total ?? total)}
-            </span>
-          </span>
-
-          <span className={styles.summaryMeta}>
+      <div className={styles.header}>
+        <div>
+          <h2 id="car-trip-history-heading">Recente ritten</h2>
+          <p>
+            {numbers.format(data?.total ?? total)} ritten
+            {" · "}
             {numbers.format(totalDistance)} km geregistreerd
-          </span>
-        </span>
-      </summary>
-
-      {open ? (
-        <div className={styles.content} aria-busy={loading}>
-          <p className={styles.description}>
-            Nieuwste kilometerstanden eerst. Voor ritten in een afgerekende
-            periode moet een eigenaar die periode eerst opnieuw openen.
           </p>
+        </div>
 
-          {loading ? (
-            <div className={styles.feedback} role="status">
-              Rithistoriek laden…
-            </div>
-          ) : error ? (
-            <div className={styles.feedback}>
-              <p role="alert" className={styles.error}>
-                {error}
-              </p>
+        <AppIcon name="car" size={20} />
+      </div>
 
-              <ActionButton
-                icon="undo"
-                variant="secondary"
-                disabled={busy}
-                onClick={() => {
-                  setLoading(true);
-                  setRetry((value) => value + 1);
-                }}
-              >
-                Opnieuw proberen
-              </ActionButton>
-            </div>
-          ) : !data || data.items.length === 0 ? (
-            <div className={styles.feedback}>
-              Nog geen ritten geregistreerd.
-            </div>
-          ) : (
-            <>
-              <ul className={styles.list}>
-                {data.items.map((trip) => {
-                  const payers = getTripPayers(trip);
-                  const payerNames = formatTripPayers(trip);
-                  const shared = payers.length > 1;
-                  const firstPayer = payers[0];
+      <div aria-busy={loading}>
+        {loading ? (
+          <p className={styles.feedback} role="status">
+            Recente ritten laden…
+          </p>
+        ) : error ? (
+          <div className={styles.feedback}>
+            <p role="alert">{error}</p>
+            <ActionButton
+              icon="undo"
+              variant="secondary"
+              disabled={busy}
+              onClick={() => setRetry((value) => value + 1)}
+            >
+              Opnieuw proberen
+            </ActionButton>
+          </div>
+        ) : !data || data.trips.length === 0 ? (
+          <p className={styles.feedback}>Nog geen ritten geregistreerd.</p>
+        ) : (
+          <ul className={styles.list}>
+            {data.trips.map((trip) => {
+              const payers = getTripPayers(trip);
+              const payer = payers[0];
+              const shared = payers.length > 1;
+              const names = formatTripPayers(trip);
 
-                  return (
-                    <li key={trip.id} className={styles.row}>
-                      <div className={styles.identity}>
-                        <span className={styles.avatar} aria-hidden="true">
-                          {shared ? (
-                            <AppIcon name="users" size={18} />
-                          ) : (
-                            <UserAvatar
-                              name={firstPayer.name}
-                              userId={
-                                firstPayer.kind === "member"
-                                  ? firstPayer.userId
-                                  : null
-                              }
-                            />
-                          )}
-                        </span>
-
-                        <div className={styles.info}>
-                          <p className={styles.title}>
-                            {shared ? "Gedeelde rit" : payers[0].name}
-                          </p>
-
-                          {shared ? (
-                            <>
-                              <ul
-                                className={styles.payers}
-                                aria-label="Betalers van deze rit"
-                              >
-                                {payers.map((payer) => (
-                                  <li
-                                    key={getTripPayerId(payer)}
-                                    className={styles.payer}
-                                  >
-                                    <span>{payer.name}</span>
-                                    {payer.kind === "guest" ? (
-                                      <span className={styles.guest}>gast</span>
-                                    ) : null}
-                                  </li>
-                                ))}
-                              </ul>
-
-                              <p className={styles.detail}>
-                                Ieder {shares[payers.length]} van de ritkost
-                              </p>
-                            </>
-                          ) : payers[0].kind === "guest" ? (
-                            <p className={styles.detail}>Gast zonder account</p>
-                          ) : null}
-
-                          <p className={styles.detail}>
-                            {formatTripMoment(trip)}
-                          </p>
-
-                          <p
-                            className={[styles.detail, styles.odometer].join(
-                              " ",
-                            )}
-                          >
-                            {numbers.format(trip.startOdometer)}
-                            {" → "}
-                            {numbers.format(trip.endOdometer)} km
-                          </p>
-
-                          {trip.description ? (
-                            <p className={styles.note}>{trip.description}</p>
-                          ) : null}
-
-                          {trip.settledLocked ? (
-                            <span className={styles.badge}>
-                              <AppIcon name="shield" size={13} />
-                              Periode afgerekend
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div className={styles.side}>
-                        <strong className={styles.value}>
-                          {numbers.format(
-                            trip.endOdometer - trip.startOdometer,
-                          )}{" "}
-                          km
-                        </strong>
-
-                        {canManage(trip) && !trip.settledLocked ? (
-                          <ActionGroup>
-                            <ActionButton
-                              icon="edit"
-                              iconOnly
-                              label={"Rit van " + payerNames + " bewerken"}
-                              variant="glass"
-                              disabled={busy}
-                              onClick={() => onEdit(trip)}
-                            />
-
-                            <ActionButton
-                              icon="trash"
-                              iconOnly
-                              danger
-                              label={"Rit van " + payerNames + " verwijderen"}
-                              variant="ghost"
-                              disabled={busy}
-                              onClick={() => onDelete(trip)}
-                            />
-                          </ActionGroup>
-                        ) : null}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-
-              {pageCount > 1 ? (
-                <nav
-                  className={styles.pagination}
-                  aria-label="Ritten pagineren"
-                >
-                  <span aria-live="polite">
-                    {firstIndex + 1}–
-                    {Math.min(firstIndex + data.pageSize, data.total)}
-                    {" van "}
-                    {data.total}
-                  </span>
-
-                  <div className={styles.pageActions}>
-                    <ActionButton
-                      icon="arrow-left"
-                      iconOnly
-                      label="Vorige pagina met ritten"
-                      variant="secondary"
-                      disabled={busy || data.page === 0}
-                      onClick={() => changePage(data.page - 1)}
-                    />
-
-                    <span>
-                      {data.page + 1} / {pageCount}
+              return (
+                <li key={trip.id} className={styles.row}>
+                  <div className={styles.identity}>
+                    <span className={styles.avatar} aria-hidden="true">
+                      {shared ? (
+                        <AppIcon name="users" size={18} />
+                      ) : (
+                        <UserAvatar
+                          name={payer.name}
+                          userId={payer.kind === "member" ? payer.userId : null}
+                        />
+                      )}
                     </span>
 
-                    <ActionButton
-                      icon="arrow-right"
-                      iconOnly
-                      label="Volgende pagina met ritten"
-                      variant="secondary"
-                      disabled={busy || data.page === pageCount - 1}
-                      onClick={() => changePage(data.page + 1)}
-                    />
+                    <div className={styles.info}>
+                      <p className={styles.name}>{names}</p>
+                      <p>{formatMoment(trip)}</p>
+                      <p className={styles.odometer}>
+                        {numbers.format(trip.startOdometer)}
+                        {" → "}
+                        {numbers.format(trip.endOdometer)} km
+                      </p>
+
+                      {trip.description && (
+                        <p className={styles.description}>{trip.description}</p>
+                      )}
+
+                      {trip.settledLocked && (
+                        <span className={styles.badge}>Afgerekend</span>
+                      )}
+                    </div>
                   </div>
-                </nav>
-              ) : null}
-            </>
-          )}
-        </div>
-      ) : null}
-    </details>
+
+                  <div className={styles.side}>
+                    <strong>
+                      {numbers.format(trip.endOdometer - trip.startOdometer)} km
+                    </strong>
+
+                    {canManage(trip) && !trip.settledLocked && (
+                      <ActionGroup>
+                        <ActionButton
+                          icon="edit"
+                          iconOnly
+                          label={"Rit van " + names + " bewerken"}
+                          variant="glass"
+                          disabled={busy}
+                          onClick={() => onEdit(trip)}
+                        />
+
+                        <ActionButton
+                          icon="trash"
+                          iconOnly
+                          danger
+                          label={"Rit van " + names + " verwijderen"}
+                          variant="ghost"
+                          disabled={busy}
+                          onClick={() => onDelete(trip)}
+                        />
+                      </ActionGroup>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      <Link href={historyHref} className={styles.allLink}>
+        <span>Volledige rithistoriek</span>
+        <AppIcon name="arrow-right" size={18} />
+      </Link>
+    </GlassSurface>
   );
 }

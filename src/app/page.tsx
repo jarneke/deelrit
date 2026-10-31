@@ -8,6 +8,7 @@ import { getCarPhotoSource, getProfilePhotoSource } from "@/lib/github-images";
 import UserAvatar from "@/components/user-avatar";
 import CarGroups from "@/components/car-groups";
 import LoadingState from "@/components/loading-state";
+import { GlassScope } from "@/components/glass-surface";
 import styles from "./page.module.css";
 
 export default function Home() {
@@ -51,13 +52,14 @@ async function MyCars() {
 
   return (
     <main className={styles.page}>
-      <div className={styles.container}>
+      <GlassScope className={styles.container}>
         <header className={styles.header}>
           <span className={styles.logo}>
             deelrit<span>.</span>
           </span>
 
           <Link
+            data-glass
             href="/account"
             className={styles.profileLink}
             aria-label={"Account van " + session.user.name}
@@ -83,7 +85,7 @@ async function MyCars() {
         </div>
 
         <CarGroups cars={cars} />
-      </div>
+      </GlassScope>
     </main>
   );
 }
