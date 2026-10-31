@@ -97,9 +97,17 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
 
   const [map, setMap] = useState("");
   const [imageReady, setImageReady] = useState(false);
-  const [enabled, setEnabled] = useState(true);
+  const [mode, setMode] = useState<"lens" | "red" | "off">("lens");
+  const [mapSize, setMapSize] = useState({
+    width: 1,
+    height: 1,
+  });
+  const [mapReady, setMapReady] = useState(false);
 
   const id = "glass-test-" + useId().replace(/[^a-zA-Z0-9_-]/g, "");
+
+  const lensId =
+    id + "-" + mapSize.width + "-" + mapSize.height + "-" + Number(mapReady);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -142,6 +150,8 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
 
       if (size !== lastSize) {
         lastSize = size;
+        setMapReady(false);
+        setMapSize({ width, height });
         setMap(makeLensMap(width, height));
       }
 
@@ -214,10 +224,18 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
 
         <button
           type="button"
-          aria-pressed={enabled}
-          onClick={() => setEnabled((previous) => !previous)}
+          aria-label="Wissel tussen glas, rode filtertest en geen filter"
+          onClick={() =>
+            setMode((previous) =>
+              previous === "lens" ? "red" : previous === "red" ? "off" : "lens",
+            )
+          }
         >
-          {enabled ? "Lens aan" : "Lens uit"}
+          {mode === "lens"
+            ? "Lens aan"
+            : mode === "red"
+              ? "Filtertest rood"
+              : "Lens uit"}
         </button>
       </header>
 
@@ -251,21 +269,33 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
       >
         <defs>
           <filter
-            id={id}
+            id={lensId}
             x="0"
             y="0"
             width="100%"
             height="100%"
             filterUnits="objectBoundingBox"
+            primitiveUnits="userSpaceOnUse"
             colorInterpolationFilters="sRGB"
           >
+            <feFlood floodColor="rgb(128,128,128)" result="neutralMap" />
+
             <feImage
               href={map || undefined}
+              xlinkHref={map || undefined}
+              onLoad={() => setMapReady(true)}
               x="0"
               y="0"
-              width="100%"
-              height="100%"
+              width={mapSize.width}
+              height={mapSize.height}
               preserveAspectRatio="none"
+              result="rawMap"
+            />
+
+            <feComposite
+              in="rawMap"
+              in2="neutralMap"
+              operator="over"
               result="lensMap"
             />
 
@@ -275,6 +305,13 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
               scale="36"
               xChannelSelector="R"
               yChannelSelector="G"
+            />
+          </filter>
+
+          <filter id={id + "-red"} colorInterpolationFilters="sRGB">
+            <feColorMatrix
+              type="matrix"
+              values="0 0 0 0 1  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"
             />
           </filter>
         </defs>
@@ -289,7 +326,10 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
           <div
             className={styles.optics}
             style={{
-              filter: enabled && map ? 'url("#' + id + '")' : "none",
+              filter:
+                mode === "off" || !map
+                  ? "none"
+                  : 'url("#' + (mode === "red" ? id + "-red" : lensId) + '")',
             }}
           >
             <div
