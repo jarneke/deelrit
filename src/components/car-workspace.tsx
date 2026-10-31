@@ -1,182 +1,201 @@
 "use client";
 
 import {
-  useCallback,
   useEffect,
+  useId,
+  useImperativeHandle,
   useRef,
-  useState,
-  type MouseEvent,
-  type ReactNode,
+  type ButtonHTMLAttributes,
+  type CSSProperties,
+  type HTMLAttributes,
+  type Ref,
 } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import AppIcon, { type IconName } from "./app-icon";
-import GlassSurface, { GlassScope } from "./glass-surface";
-import styles from "./car-workspace.module.css";
+import styles from "./glass-surface.module.css";
 
-const links: {
-  id: string;
-  label: string;
-  icon: IconName;
-}[] = [
-  { id: "car-overview", label: "Overzicht", icon: "car" },
-  { id: "car-history", label: "Historiek", icon: "wallet" },
-  { id: "car-costs", label: "Kosten", icon: "gauge" },
-  { id: "car-planning", label: "Planning", icon: "calendar" },
-  { id: "car-group", label: "Groep", icon: "users" },
-];
-
-type Props = {
-  photoSource: string;
-  hero: ReactNode;
-  startpoint: ReactNode;
-  trips: ReactNode;
-  refuels: ReactNode;
-  recent: ReactNode;
-  planning: ReactNode;
-  costs: ReactNode;
-  group: ReactNode;
-  statisticsHref: string;
+type Props = HTMLAttributes<HTMLElement> & {
+  as?: "div" | "section" | "article";
+  tone?: "glass" | "solid";
 };
 
-export default function CarWorkspace({
-  photoSource,
-  hero,
-  startpoint,
-  trips,
-  refuels,
-  recent,
-  planning,
-  costs,
-  group,
-  statisticsHref,
-}: Props) {
-  const root = useRef<HTMLDivElement>(null);
-  const heroRef = useRef<HTMLDivElement>(null);
-  const backdrop = useRef<HTMLDivElement>(null);
-  const imageRatio = useRef<number | null>(null);
+type ScopeProps = HTMLAttributes<HTMLDivElement> & {
+  ref?: Ref<HTMLDivElement>;
+};
 
-  const [active, setActive] = useState("car-overview");
-  const [photoFailed, setPhotoFailed] = useState(false);
-  const [photoReady, setPhotoReady] = useState(false);
+type GlassButtonProps = ButtonHTMLAttributes<HTMLButtonElement>;
 
-  const reveal = useCallback((id: string, push = true) => {
-    const container = root.current;
-    if (!container) return;
+const sceneProperties = [
+  "--glass-photo-image",
+  "--glass-photo-x",
+  "--glass-photo-y",
+  "--glass-photo-width",
+  "--glass-photo-height",
+  "--glass-photo-fade-start",
+  "--glass-photo-fade-middle",
+  "--glass-photo-fade-end",
+  "--glass-photo-bottom",
+  "--glass-photo-radius",
+] as const;
 
-    const target = document.getElementById(id);
-    if (!target || !container.contains(target)) return;
+const materialSelector = [
+  "." + styles.surface + ":not(." + styles.solid + ")",
+  "[data-glass]",
+  "#car-costs > section",
+  "#car-planning > section",
+  "#car-group > section",
+  '#car-history > div > section[aria-label="Laatste activiteit"] a',
+  '[data-entry="refuel"] > section > div:first-child > button',
+  "[data-entry] > section > details",
+  "#car-overview > div:first-child > div > div:last-child > div:last-child > div:last-child button",
+].join(",");
 
-    if (target instanceof HTMLDetailsElement) {
-      target.open = true;
-    }
+function setProperty(element: HTMLElement, property: string, value: string) {
+  if (element.style.getPropertyValue(property) !== value) {
+    element.style.setProperty(property, value);
+  }
+}
 
-    if (push) {
-      window.history.pushState(null, "", "#" + id);
-    }
-
-    const destination = target;
-
-    window.requestAnimationFrame(() => {
-      const focusTarget =
-        destination instanceof HTMLDetailsElement
-          ? destination.querySelector<HTMLElement>("summary")
-          : destination;
-
-      focusTarget?.focus({ preventScroll: true });
-
-      destination.scrollIntoView({
-        block: "start",
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "auto"
-          : "smooth",
-      });
-    });
-  }, []);
-
+function usePhotoRefraction(root: { readonly current: HTMLDivElement | null }) {
   useEffect(() => {
-    let frame = 0;
+    const container = root.current;
 
-    let origin: {
-      top: number;
-      left: number;
-      width: number;
-      height: number;
-    } | null = null;
+    if (!container || !window.CSS.supports("-webkit-touch-callout", "none")) {
+      return;
+    }
+
+    const reducedTransparency = window.matchMedia(
+      "(prefers-reduced-transparency: reduce)",
+    );
+
+    let frame = 0;
+    let image: HTMLImageElement | null = null;
+    let surfaces: HTMLElement[] = [];
+    let dirty = true;
+
+    const touched = new Set<HTMLElement>();
+
+    function disable(element: HTMLElement) {
+      element.removeAttribute("data-glass-photo");
+    }
+
+    function clear(element: HTMLElement) {
+      disable(element);
+
+      for (const property of sceneProperties) {
+        element.style.removeProperty(property);
+      }
+    }
 
     function update() {
       frame = 0;
 
-      if (document.body.style.position === "fixed") return;
+      if (dirty) {
+        surfaces = Array.from(
+          container!.querySelectorAll<HTMLElement>(materialSelector),
+        );
+        dirty = false;
 
-      const progress = Math.min(1, Math.max(0, window.scrollY / 220));
-
-      root.current?.style.setProperty(
-        "--hero-surface-strength",
-        `${(1 - progress) * 100}%`,
-      );
-
-      const heroElement = heroRef.current;
-      const layer = backdrop.current;
-
-      if (heroElement && layer) {
-        const visual = heroElement.firstElementChild?.firstElementChild;
-
-        if (!(visual instanceof HTMLElement)) return;
-
-        if (imageRatio.current) {
-          visual.style.height =
-            visual.getBoundingClientRect().width / imageRatio.current + "px";
-        }
-
-        if (!origin) {
-          const rect = visual.getBoundingClientRect();
-
-          origin = {
-            top: rect.top + window.scrollY,
-            left: rect.left,
-            width: rect.width,
-            height: rect.height,
-          };
-        }
-
-        const header = root.current?.closest("main")?.querySelector("header");
-        const headerBottom = header?.getBoundingClientRect().bottom ?? 80;
-
-        const top = origin.top + (headerBottom - origin.top) * progress;
-        const left = origin.left * (1 - progress);
-        const width =
-          origin.width + (window.innerWidth - origin.width) * progress;
-        const ratio = imageRatio.current ?? origin.width / origin.height;
-        const height = width / ratio;
-
-        layer.style.top = top + "px";
-        layer.style.left = left + "px";
-        layer.style.width = width + "px";
-        layer.style.height = Math.max(1, height) + "px";
-
-        const radius = 24 * (1 - progress);
-        const wideLayout = window.matchMedia("(min-width: 900px)").matches;
-        const photoRadius = wideLayout
-          ? `${radius}px 0px 0px 0px`
-          : `${radius}px ${radius}px 0px 0px`;
-
-        layer.style.borderRadius = photoRadius;
-        visual.style.borderRadius = photoRadius;
-        layer.style.opacity = "1";
-      }
-
-      let current = links[0].id;
-
-      for (const link of links) {
-        const element = document.getElementById(link.id);
-
-        if (element && element.getBoundingClientRect().top <= 150) {
-          current = link.id;
+        for (const element of touched) {
+          if (!container!.contains(element)) {
+            clear(element);
+            touched.delete(element);
+          }
         }
       }
 
-      setActive((previous) => (previous === current ? previous : current));
+      if (
+        reducedTransparency.matches ||
+        container!.getAttribute("data-photo-ready") !== "true" ||
+        !image ||
+        !image.complete ||
+        !image.naturalWidth
+      ) {
+        for (const element of touched) {
+          disable(element);
+        }
+
+        return;
+      }
+
+      const photo = image.getBoundingClientRect();
+      const source = image.currentSrc || image.src;
+
+      if (!source || photo.width <= 1 || photo.height <= 1) {
+        for (const element of touched) {
+          disable(element);
+        }
+
+        return;
+      }
+
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+
+      const measurements = surfaces.map((element) => {
+        const rect = element.getBoundingClientRect();
+
+        const visible =
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.bottom > 0 &&
+          rect.top < viewportHeight &&
+          rect.right > 0 &&
+          rect.left < viewportWidth;
+
+        const overlaps =
+          visible &&
+          rect.bottom > photo.top &&
+          rect.top < photo.bottom &&
+          rect.right > photo.left &&
+          rect.left < photo.right;
+
+        if (!overlaps) {
+          return { element, values: null };
+        }
+
+        const computed = window.getComputedStyle(element);
+
+        // ::before ligt binnen de border van het glaselement.
+        const left =
+          rect.left + (Number.parseFloat(computed.borderLeftWidth) || 0);
+        const top =
+          rect.top + (Number.parseFloat(computed.borderTopWidth) || 0);
+
+        const x = photo.left - left;
+        const y = photo.top - top;
+
+        return {
+          element,
+          values: {
+            "--glass-photo-image": `url(${JSON.stringify(source)})`,
+            "--glass-photo-x": `${x}px`,
+            "--glass-photo-y": `${y}px`,
+            "--glass-photo-width": `${photo.width}px`,
+            "--glass-photo-height": `${photo.height}px`,
+            "--glass-photo-fade-start": `${y + photo.height * 0.35}px`,
+            "--glass-photo-fade-middle": `${y + photo.height * 0.55}px`,
+            "--glass-photo-fade-end": `${y + photo.height * 0.78}px`,
+            "--glass-photo-bottom": `${y + photo.height}px`,
+            "--glass-photo-radius": computed.borderRadius,
+          },
+        };
+      });
+
+      for (const { element, values } of measurements) {
+        if (!values) {
+          disable(element);
+          continue;
+        }
+
+        for (const [property, value] of Object.entries(values)) {
+          setProperty(element, property, value);
+        }
+
+        touched.add(element);
+
+        if (!element.hasAttribute("data-glass-photo")) {
+          element.setAttribute("data-glass-photo", "");
+        }
+      }
     }
 
     function schedule() {
@@ -185,190 +204,227 @@ export default function CarWorkspace({
       }
     }
 
-    function resize() {
-      origin = null;
+    const geometryObserver = new MutationObserver(() => {
+      // CarWorkspace schrijft de nieuwe fotopositie tijdens scroll.
+      // Lees die positie voordat de browser het volgende beeld tekent.
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+        frame = 0;
+      }
+
+      update();
+    });
+
+    const resizeObserver = new ResizeObserver(schedule);
+
+    function findImage() {
+      // De bestaande vaste achtergrondfoto van CarWorkspace.
+      const next = container!.querySelector<HTMLImageElement>(
+        ':scope > div[aria-hidden="true"] > img',
+      );
+
+      if (next === image) return;
+
+      image?.removeEventListener("load", schedule);
+      geometryObserver.disconnect();
+      resizeObserver.disconnect();
+
+      image = next;
+
+      if (image) {
+        image.addEventListener("load", schedule);
+        resizeObserver.observe(image);
+
+        if (image.parentElement) {
+          resizeObserver.observe(image.parentElement);
+
+          geometryObserver.observe(image.parentElement, {
+            attributes: true,
+            attributeFilter: ["style"],
+          });
+        }
+      }
+    }
+
+    const contentObserver = new MutationObserver(() => {
+      dirty = true;
+      findImage();
       schedule();
-    }
+    });
 
-    function restore() {
-      const id = window.location.hash.slice(1);
-      if (id) reveal(id, false);
-    }
+    contentObserver.observe(container, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-photo-ready"],
+    });
 
-    window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", resize);
-    window.addEventListener("hashchange", restore);
-    window.addEventListener("popstate", restore);
-
-    restore();
+    findImage();
     schedule();
 
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    window.visualViewport?.addEventListener("resize", schedule);
+    window.visualViewport?.addEventListener("scroll", schedule);
+    reducedTransparency.addEventListener("change", schedule);
+
+    container.addEventListener("animationend", schedule, true);
+    container.addEventListener("transitionend", schedule, true);
+    container.addEventListener("toggle", schedule, true);
+
     return () => {
-      window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", resize);
-      window.removeEventListener("hashchange", restore);
-      window.removeEventListener("popstate", restore);
       window.cancelAnimationFrame(frame);
+
+      contentObserver.disconnect();
+      geometryObserver.disconnect();
+      resizeObserver.disconnect();
+
+      image?.removeEventListener("load", schedule);
+
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      window.visualViewport?.removeEventListener("resize", schedule);
+      window.visualViewport?.removeEventListener("scroll", schedule);
+      reducedTransparency.removeEventListener("change", schedule);
+
+      container.removeEventListener("animationend", schedule, true);
+      container.removeEventListener("transitionend", schedule, true);
+      container.removeEventListener("toggle", schedule, true);
+
+      for (const element of touched) {
+        clear(element);
+      }
     };
-  }, [reveal]);
+  }, [root]);
+}
 
-  function follow(event: MouseEvent<HTMLAnchorElement>, id: string) {
-    if (
-      event.button !== 0 ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    reveal(id);
-  }
-
+function GlassDefinitions({ id }: { id: string }) {
   return (
-    <GlassScope
-      ref={root}
-      className={styles.workspace}
-      data-photo-ready={photoReady && !photoFailed ? "true" : undefined}
+    <svg
+      className={styles.definitions}
+      width="0"
+      height="0"
+      aria-hidden="true"
+      focusable="false"
     >
-      {!photoFailed && (
-        <div ref={backdrop} className={styles.backdrop} aria-hidden="true">
-          <Image
-            loading="eager"
-            src={photoSource}
-            alt=""
-            fill
-            unoptimized
-            sizes="100vw"
-            className={styles.backgroundImage}
-            onLoad={(event) => {
-              const image = event.currentTarget;
-
-              if (image.naturalWidth && image.naturalHeight) {
-                imageRatio.current = image.naturalWidth / image.naturalHeight;
-              }
-
-              setPhotoReady(true);
-              window.dispatchEvent(new Event("resize"));
-            }}
-            onError={() => setPhotoFailed(true)}
+      <defs>
+        <filter
+          id={id}
+          x="-15%"
+          y="-15%"
+          width="130%"
+          height="130%"
+          filterUnits="objectBoundingBox"
+          colorInterpolationFilters="sRGB"
+        >
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.01 0.01"
+            numOctaves="1"
+            seed="5"
+            result="turbulence"
           />
 
-          <div className={styles.wash} />
-        </div>
-      )}
+          <feGaussianBlur in="turbulence" stdDeviation="3" result="softMap" />
 
-      <section id="car-overview" className={styles.overview} tabIndex={-1}>
-        <div ref={heroRef} className={styles.heroMount}>
-          {hero}
-        </div>
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="softMap"
+            scale="35"
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
+      </defs>
+    </svg>
+  );
+}
 
-        {startpoint}
-      </section>
+function useGlassStyle(style?: CSSProperties) {
+  const id = useId();
 
-      <section
-        id="car-history"
-        className={styles.history}
-        tabIndex={-1}
-        aria-label="Ritten, tankbeurten en laatste activiteit"
+  const filterId = "deelrit-glass-" + id.replace(/[^a-zA-Z0-9_-]/g, "");
+
+  const surfaceStyle = {
+    ...style,
+    "--glass-filter": 'url("#' + filterId + '")',
+  } as CSSProperties;
+
+  return { filterId, surfaceStyle };
+}
+
+export function GlassScope({
+  ref,
+  className,
+  style,
+  children,
+  ...props
+}: ScopeProps) {
+  const root = useRef<HTMLDivElement>(null);
+  const { filterId, surfaceStyle } = useGlassStyle(style);
+
+  useImperativeHandle(ref, () => root.current!, []);
+  usePhotoRefraction(root);
+
+  return (
+    <div
+      {...props}
+      ref={root}
+      className={[styles.scope, className].filter(Boolean).join(" ")}
+      style={surfaceStyle}
+    >
+      <GlassDefinitions id={filterId} />
+      {children}
+    </div>
+  );
+}
+
+export function GlassButton({
+  className,
+  style,
+  children,
+  type = "button",
+  ...props
+}: GlassButtonProps) {
+  const { filterId, surfaceStyle } = useGlassStyle(style);
+
+  return (
+    <>
+      <GlassDefinitions id={filterId} />
+
+      <button
+        {...props}
+        type={type}
+        className={[styles.surface, className].filter(Boolean).join(" ")}
+        style={surfaceStyle}
       >
-        <div className={styles.entries}>
-          <div data-entry="trip" className={styles.tripSlot}>
-            {trips}
-          </div>
+        {children}
+      </button>
+    </>
+  );
+}
 
-          <div data-entry="refuel" className={styles.refuelSlot}>
-            {refuels}
-          </div>
+export default function GlassSurface({
+  as: Element = "div",
+  tone = "glass",
+  className,
+  children,
+  style,
+  ...props
+}: Props) {
+  const { filterId, surfaceStyle } = useGlassStyle(style);
 
-          <section
-            className={styles.recent}
-            aria-label="Laatste activiteit"
-            onClick={(event) => {
-              if (!(event.target instanceof Element)) return;
+  const classes = [styles.surface, tone === "solid" && styles.solid, className]
+    .filter(Boolean)
+    .join(" ");
 
-              const anchor =
-                event.target.closest<HTMLAnchorElement>('a[href^="#car-"]');
+  return (
+    <>
+      {tone === "glass" && <GlassDefinitions id={filterId} />}
 
-              if (
-                !anchor ||
-                event.button !== 0 ||
-                event.metaKey ||
-                event.ctrlKey ||
-                event.shiftKey ||
-                event.altKey
-              ) {
-                return;
-              }
-
-              const id = anchor.getAttribute("href")?.slice(1);
-
-              if (id === "car-trip-history" || id === "car-refuel-history") {
-                event.preventDefault();
-                reveal(id);
-              }
-            }}
-          >
-            {recent}
-          </section>
-
-          <section
-            id="car-costs"
-            className={styles.costs}
-            aria-label="Afrekening"
-          >
-            {costs}
-          </section>
-        </div>
-      </section>
-
-      <Link data-glass className={styles.statistics} href={statisticsHref}>
-        <AppIcon name="gauge" size={21} />
-
-        <span>
-          <strong>Statistieken</strong>
-          <small>Kilometers, verbruik en kosten</small>
-        </span>
-
-        <AppIcon name="arrow-right" size={18} />
-      </Link>
-
-      <section
-        id="car-planning"
-        className={styles.section}
-        tabIndex={-1}
-        aria-label="Planning"
-      >
-        {planning}
-      </section>
-
-      <section
-        id="car-group"
-        className={styles.section}
-        tabIndex={-1}
-        aria-label="Groep en uitnodigingen"
-      >
-        {group}
-      </section>
-
-      <nav className={styles.dock} aria-label="Snel naar een onderdeel">
-        <GlassSurface className={styles.bar}>
-          {links.map((link) => (
-            <a
-              key={link.id}
-              href={"#" + link.id}
-              className={styles.link}
-              aria-current={active === link.id ? "location" : undefined}
-              onClick={(event) => follow(event, link.id)}
-            >
-              <AppIcon name={link.icon} size={20} />
-              <span>{link.label}</span>
-            </a>
-          ))}
-        </GlassSurface>
-      </nav>
-    </GlassScope>
+      <Element {...props} className={classes} style={surfaceStyle}>
+        {children}
+      </Element>
+    </>
   );
 }

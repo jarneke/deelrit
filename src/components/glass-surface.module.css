@@ -142,10 +142,9 @@
   )::before {
   z-index: -2;
   background: transparent;
-  -webkit-backdrop-filter: blur(var(--glass-compatible-blur, var(--glass-blur)))
+  -webkit-backdrop-filter: blur(var(--glass-blur))
     saturate(var(--glass-saturation));
-  backdrop-filter: blur(var(--glass-compatible-blur, var(--glass-blur)))
-    saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
   filter: var(--glass-svg-filter, var(--glass-filter));
 }
 
@@ -187,12 +186,42 @@
   backdrop-filter: none;
 }
 
-/* iOS WebKit: behoud glas zonder de problematische SVG-combinatie. */
+/* Buiten de fotoscène blijft de normale, lichte backdrop-blur actief. */
 @supports (-webkit-touch-callout: none) {
   .scope,
   .surface {
     --glass-svg-filter: none;
-    --glass-compatible-blur: 10px;
+  }
+
+  /*
+   * Een echte afbeeldingslaag als SourceGraphic voor de SVG-filter.
+   * Geen backdrop-filter op dezelfde laag: de foto zelf wordt vervormd.
+   */
+  .scope :global([data-glass-photo])::before {
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(
+        to bottom,
+        transparent var(--glass-photo-fade-start),
+        color-mix(in srgb, var(--bg) 15%, transparent)
+          var(--glass-photo-fade-middle),
+        color-mix(in srgb, var(--bg) 65%, transparent)
+          var(--glass-photo-fade-end),
+        var(--bg) var(--glass-photo-bottom)
+      ),
+      var(--glass-photo-image);
+    background-position:
+      0 0,
+      var(--glass-photo-x) var(--glass-photo-y);
+    background-size:
+      100% 100%,
+      var(--glass-photo-width) var(--glass-photo-height);
+    background-repeat: no-repeat;
+    background-origin: border-box;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    filter: var(--glass-filter) !important;
+    clip-path: inset(0 round var(--glass-photo-radius, 0px));
   }
 }
 
@@ -266,10 +295,12 @@
           > div:last-child
           button
       )
-    )::before {
-    filter: none;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
+    )::before,
+  .scope :global([data-glass-photo])::before {
+    background: none !important;
+    filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 
   .surface:not(.solid)::after,
