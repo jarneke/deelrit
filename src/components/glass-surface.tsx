@@ -121,8 +121,10 @@ function usePhotoRefraction(root: { readonly current: HTMLDivElement | null }) {
       clip.setAttribute("data-glass-decoration", "");
       clip.setAttribute("aria-hidden", "true");
 
-      mover.append(texture);
-      clip.append(mover);
+      // De filterlaag blijft vast aan het glasvlak.
+      // Alleen de foto binnen die filterlaag beweegt.
+      texture.append(mover);
+      clip.append(texture);
       element.append(clip);
       element.setAttribute("data-glass-native", "");
 
@@ -175,7 +177,6 @@ function usePhotoRefraction(root: { readonly current: HTMLDivElement | null }) {
         maxScroll,
       ].join("|");
 
-      // Gewoon scrollen vereist geen nieuwe metingen of styles.
       if (!layoutDirty && scene === lastScene) {
         return;
       }
@@ -218,8 +219,10 @@ function usePhotoRefraction(root: { readonly current: HTMLDivElement | null }) {
 
         layer.mover.style.width = photo.width + "px";
         layer.mover.style.height = photo.height + "px";
+        layer.mover.style.backgroundSize = "100% 100%";
+        layer.mover.style.backgroundRepeat = "no-repeat";
 
-        layer.texture.style.backgroundImage =
+        layer.mover.style.backgroundImage =
           "linear-gradient(to bottom, transparent 35%, " +
           "color-mix(in srgb, var(--bg) 15%, transparent) 55%, " +
           "color-mix(in srgb, var(--bg) 65%, transparent) 78%, " +
@@ -277,8 +280,6 @@ function usePhotoRefraction(root: { readonly current: HTMLDivElement | null }) {
     }
 
     const geometryObserver = new MutationObserver(() => {
-      // De bestaande hero vergroot nog tijdens de eerste 220px scroll.
-      // Alleen een gewijzigde foto vereist nieuwe startposities.
       if (frame) {
         window.cancelAnimationFrame(frame);
       }
