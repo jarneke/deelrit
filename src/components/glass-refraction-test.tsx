@@ -17,97 +17,20 @@ type NativeScrollWindow = Window & {
   }) => AnimationTimeline;
 };
 
-function roundedDistance(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-) {
-  const qx = Math.abs(x - width / 2) - (width / 2 - radius);
-  const qy = Math.abs(y - height / 2) - (height / 2 - radius);
-
-  return (
-    Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) +
-    Math.min(Math.max(qx, qy), 0) -
-    radius
-  );
-}
-
-function makeLensMap(width: number, height: number) {
-  const canvas = document.createElement("canvas");
-  const ratio = Math.min(1, 512 / width);
-
-  canvas.width = Math.max(1, Math.round(width * ratio));
-  canvas.height = Math.max(1, Math.round(height * ratio));
-
-  const context = canvas.getContext("2d");
-  if (!context) return "";
-
-  const pixels = context.createImageData(canvas.width, canvas.height);
-
-  const radius = Math.min(26, width / 2, height / 2);
-  const depth = Math.min(26, height / 3);
-  const scale = 36;
-
-  for (let py = 0; py < canvas.height; py += 1) {
-    for (let px = 0; px < canvas.width; px += 1) {
-      const x = ((px + 0.5) / canvas.width) * width;
-      const y = ((py + 0.5) / canvas.height) * height;
-
-      const distance = roundedDistance(x, y, width, height, radius);
-
-      const inside = Math.max(0, -distance);
-      const edge = Math.max(0, 1 - inside / depth);
-
-      const dx =
-        roundedDistance(x + 0.5, y, width, height, radius) -
-        roundedDistance(x - 0.5, y, width, height, radius);
-
-      const dy =
-        roundedDistance(x, y + 0.5, width, height, radius) -
-        roundedDistance(x, y - 0.5, width, height, radius);
-
-      const length = Math.hypot(dx, dy) || 1;
-      const bend = Math.sin((edge * Math.PI) / 2) * 14;
-      const index = (py * canvas.width + px) * 4;
-
-      pixels.data[index] = Math.round(
-        255 * (0.5 - ((dx / length) * bend) / scale),
-      );
-
-      pixels.data[index + 1] = Math.round(
-        255 * (0.5 - ((dy / length) * bend) / scale),
-      );
-
-      pixels.data[index + 2] = 128;
-      pixels.data[index + 3] = 255;
-    }
-  }
-
-  context.putImageData(pixels, 0, 0);
-  return canvas.toDataURL("image/png");
-}
-
 export default function GlassRefractionTest({ photoSource, backHref }: Props) {
   const sceneRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  const copyRef = useRef<HTMLDivElement>(null);
+  const copyRef = useRef<SVGImageElement>(null);
   const statusRef = useRef<HTMLParagraphElement>(null);
 
-  const [map, setMap] = useState("");
-  const [imageReady, setImageReady] = useState(false);
-  const [mode, setMode] = useState<"lens" | "red" | "off">("lens");
-  const [mapSize, setMapSize] = useState({
+  const [size, setSize] = useState({
     width: 1,
     height: 1,
   });
-  const [mapReady, setMapReady] = useState(false);
+  const [imageReady, setImageReady] = useState(false);
+  const [mode, setMode] = useState<"lens" | "red" | "off">("lens");
 
-  const id = "glass-test-" + useId().replace(/[^a-zA-Z0-9_-]/g, "");
-
-  const lensId =
-    id + "-" + mapSize.width + "-" + mapSize.height + "-" + Number(mapReady);
+  const id = "glass-svg-" + useId().replace(/[^a-zA-Z0-9_-]/g, "");
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -121,7 +44,7 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
     if (!Timeline) {
       if (statusRef.current) {
         statusRef.current.textContent =
-          "Deze browser ondersteunt de scrolltijdlijn van deze test niet.";
+          "Deze browser ondersteunt de scrolltijdlijn niet.";
       }
 
       return;
@@ -132,10 +55,10 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
       axis: "block",
     });
 
-    let animation: Animation | null = null;
     let effect: KeyframeEffect | null = null;
+    let animation: Animation | null = null;
     let frame = 0;
-    let lastSize = "";
+    let previousSize = "";
 
     function measure() {
       frame = 0;
@@ -144,15 +67,14 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
       const rect = card!.getBoundingClientRect();
       const width = card!.clientWidth;
       const height = card!.clientHeight;
-      const size = width + ":" + height;
 
       if (width <= 0 || height <= 0) return;
 
-      if (size !== lastSize) {
-        lastSize = size;
-        setMapReady(false);
-        setMapSize({ width, height });
-        setMap(makeLensMap(width, height));
+      const sizeKey = width + ":" + height;
+
+      if (sizeKey !== previousSize) {
+        previousSize = sizeKey;
+        setSize({ width, height });
       }
 
       const x = photo.left - rect.left - card!.clientLeft;
@@ -164,15 +86,15 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
         scrollRoot!.scrollHeight - scrollRoot!.clientHeight,
       );
 
-      copy!.style.width = photo.width + "px";
-      copy!.style.height = photo.height + "px";
+      copy!.setAttribute("width", String(photo.width));
+      copy!.setAttribute("height", String(photo.height));
 
       const keyframes: Keyframe[] = [
         {
-          transform: "translate3d(" + x + "px," + y + "px,0)",
+          transform: "translate(" + x + "px," + y + "px)",
         },
         {
-          transform: "translate3d(" + x + "px," + (y + maxScroll) + "px,0)",
+          transform: "translate(" + x + "px," + (y + maxScroll) + "px)",
         },
       ];
 
@@ -224,7 +146,7 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
 
         <button
           type="button"
-          aria-label="Wissel tussen glas, rode filtertest en geen filter"
+          aria-label="Wissel tussen vervorming, rode filtertest en geen filter"
           onClick={() =>
             setMode((previous) =>
               previous === "lens" ? "red" : previous === "red" ? "off" : "lens",
@@ -253,93 +175,110 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
       </div>
 
       <div className={styles.intro}>
-        <h1>Eén glaslens</h1>
+        <h1>SVG-glastest</h1>
 
         <p ref={statusRef}>
-          Scroll de kaart over de auto en de bergen. Vergelijk met de lens uit.
+          Test eerst rood. Vergelijk daarna de vervorming met de lens uit.
         </p>
       </div>
-
-      <svg
-        className={styles.definitions}
-        width="0"
-        height="0"
-        aria-hidden="true"
-        focusable="false"
-      >
-        <defs>
-          <filter
-            id={lensId}
-            x="0"
-            y="0"
-            width="100%"
-            height="100%"
-            filterUnits="objectBoundingBox"
-            primitiveUnits="userSpaceOnUse"
-            colorInterpolationFilters="sRGB"
-          >
-            <feFlood floodColor="rgb(128,128,128)" result="neutralMap" />
-
-            <feImage
-              href={map || undefined}
-              xlinkHref={map || undefined}
-              onLoad={() => setMapReady(true)}
-              x="0"
-              y="0"
-              width={mapSize.width}
-              height={mapSize.height}
-              preserveAspectRatio="none"
-              result="rawMap"
-            />
-
-            <feComposite
-              in="rawMap"
-              in2="neutralMap"
-              operator="over"
-              result="lensMap"
-            />
-
-            <feDisplacementMap
-              in="SourceGraphic"
-              in2="lensMap"
-              scale="36"
-              xChannelSelector="R"
-              yChannelSelector="G"
-            />
-          </filter>
-
-          <filter id={id + "-red"} colorInterpolationFilters="sRGB">
-            <feColorMatrix
-              type="matrix"
-              values="0 0 0 0 1  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"
-            />
-          </filter>
-        </defs>
-      </svg>
 
       <div
         ref={cardRef}
         className={styles.card}
-        data-ready={imageReady && !!map ? "true" : undefined}
+        data-ready={imageReady && size.width > 1 ? "true" : undefined}
       >
         <div className={styles.clip} aria-hidden="true">
-          <div
-            className={styles.optics}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="100%"
+            height="100%"
+            viewBox={"0 0 " + size.width + " " + size.height}
+            preserveAspectRatio="none"
             style={{
-              filter:
-                mode === "off" || !map
-                  ? "none"
-                  : 'url("#' + (mode === "red" ? id + "-red" : lensId) + '")',
+              position: "absolute",
+              inset: 0,
+              display: "block",
+              overflow: "hidden",
             }}
           >
-            <div
-              ref={copyRef}
-              className={styles.copy}
-              style={{
-                backgroundImage: "url(" + JSON.stringify(photoSource) + ")",
-              }}
-            />
-          </div>
+            <defs>
+              <filter
+                id={id + "-lens"}
+                x="0"
+                y="0"
+                width={size.width}
+                height={size.height}
+                filterUnits="userSpaceOnUse"
+                primitiveUnits="userSpaceOnUse"
+                colorInterpolationFilters="sRGB"
+              >
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.014 0.02"
+                  numOctaves="1"
+                  seed="5"
+                  result="noise"
+                />
+
+                <feGaussianBlur
+                  in="noise"
+                  stdDeviation="2"
+                  result="smoothNoise"
+                />
+
+                <feDisplacementMap
+                  in="SourceGraphic"
+                  in2="smoothNoise"
+                  scale="32"
+                  xChannelSelector="R"
+                  yChannelSelector="G"
+                />
+              </filter>
+
+              <filter
+                id={id + "-red"}
+                x="0"
+                y="0"
+                width={size.width}
+                height={size.height}
+                filterUnits="userSpaceOnUse"
+                primitiveUnits="userSpaceOnUse"
+                colorInterpolationFilters="sRGB"
+              >
+                <feColorMatrix
+                  type="matrix"
+                  values="0 0 0 0 1  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"
+                />
+              </filter>
+            </defs>
+
+            <g
+              filter={
+                mode === "off" ? undefined : "url(#" + id + "-" + mode + ")"
+              }
+            >
+              <rect
+                x="0"
+                y="0"
+                width={size.width}
+                height={size.height}
+                fill="var(--bg)"
+              />
+
+              <image
+                ref={copyRef}
+                href={photoSource}
+                xlinkHref={photoSource}
+                x="0"
+                y="0"
+                preserveAspectRatio="xMidYMid slice"
+                style={{
+                  transformOrigin: "0 0",
+                  transformBox: "view-box",
+                }}
+              />
+            </g>
+          </svg>
         </div>
 
         <div className={styles.tint} aria-hidden="true" />
@@ -350,7 +289,7 @@ export default function GlassRefractionTest({ photoSource, backHref }: Props) {
           <strong>100.216 km</strong>
 
           <span className={styles.description}>
-            De foto hoort door de randen van het glas te buigen.
+            Vervorming over het volledige glasvlak.
           </span>
         </div>
       </div>
