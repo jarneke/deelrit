@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-const REFRACTION_STRENGTH = 6;
+const REFRACTION_STRENGTH = 5;
 
 type Lens = {
     rect: [number, number, number, number];
