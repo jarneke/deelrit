@@ -46,7 +46,7 @@ const FRAGMENT = [
   "    offset = vec2(",
   "      sin(local.y * 0.055 + sin(local.x * 0.025) * 1.2),",
   "      cos(local.x * 0.045 + sin(local.y * 0.03) * 1.3)",
-  "    ) * 13.0 * mask;",
+  "    ) * 10.0 * mask;",
   "  }",
 
   "  float cover = max(u_resolution.x / u_image.x, u_resolution.y / u_image.y);",
