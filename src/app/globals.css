@@ -266,6 +266,41 @@ textarea {
   font: inherit;
 }
 
+/* iOS: voorkom de afwijkende native breedte van datum- en tijdvelden. */
+@supports (-webkit-touch-callout: none) {
+  :root input:is([type="date"], [type="time"], [type="datetime-local"]) {
+    -webkit-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-inline-size: 0;
+    max-inline-size: 100%;
+  }
+
+  :root
+    input:is(
+      [type="date"],
+      [type="time"],
+      [type="datetime-local"]
+    )::-webkit-date-and-time-value {
+    min-height: 1.4em;
+    text-align: start;
+  }
+
+  :root
+    input:is(
+      [type="date"],
+      [type="time"],
+      [type="datetime-local"]
+    )::-webkit-datetime-edit {
+    min-width: 0;
+    padding: 0;
+  }
+}
+
 input,
 select,
 textarea {
@@ -320,7 +355,7 @@ textarea::placeholder {
 }
 
 :root details[open] > summary::after {
-  content: "" !important;
+  content: "";
   transform: translateY(-20%) rotate(225deg);
 }
 
